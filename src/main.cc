@@ -1,34 +1,13 @@
-#include <libgen.h>
-#include <pthread.h>
-#include <signal.h>
+#include "spotify.h"
+
+#include <libspotify/api.h>
+#include <node.h>
 #include <stdio.h>
 #include <string>
 #include <v8.h>
-#include <node.h>
-#include <libspotify/api.h>
-
-#include "appkey.c"
-#include "spotify.h"
 
 using namespace std;
 using namespace v8;
-
-extern const uint8_t g_appkey[];
-extern const size_t g_appkey_size;
-
-int g_exit_code = -1;
-static pthread_t g_main_thread = (pthread_t) -1;
-
-static void notify_main_thread(sp_session *session) {
-  // fprintf(stderr, "(notify main thread)\n");
-  pthread_kill(g_main_thread, SIGIO);
-}
-
-static void sigIgn(int signo) {
-}
-
-
-
 
 static void Log(const char* event) {
   printf("Logged: %s\n", event);
@@ -42,7 +21,6 @@ static Handle<Value> LogCallback(const Arguments& args) {
   Log(*value);
   return Undefined();
 }
-
 
 Handle<String> ReadFile(const string& name) {
   FILE* file = fopen(name.c_str(), "rb");
