@@ -7,11 +7,9 @@ function test(obj, prop) {
   return ok;
 }
 
-test(spotify, 'withApplicationKey')
-
-if (test(spotify, 'login')) {
-  log(spotify.login)
-  spotify.login("username", "password", onError, onSession);
+if (test(spotify, 'withApplicationKey')) {
+  var login = spotify.withApplicationKey(/* appkey here later */);
+  login("username", "password", onError, onSession);
 
   function onError(message) {
     log(this)

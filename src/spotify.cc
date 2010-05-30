@@ -1,19 +1,9 @@
 #include "./spotify.h"
 #include "./session.h"
 
-#include <ev.h>
 #include <libspotify/api.h>
 #include <node.h>
-#include <pthread.h>
-#include <signal.h>
-#include <unistd.h>
 #include <v8.h>
-
-#include "appkey.c"
-
-extern const uint8_t g_appkey[];
-extern const size_t g_appkey_size;
-
 
 namespace spotify {
 
@@ -23,15 +13,16 @@ void Spotify::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<ObjectTemplate> t = ObjectTemplate::New();
   NODE_SET_METHOD(t, "withApplicationKey", WithApplicationKey);
-  NODE_SET_METHOD(t, "login", Login);
   Local<Object> spotify = t->NewInstance();
   target->Set(String::NewSymbol("spotify"), spotify);
 }
 
-// TODO(liesen): implement, alright!?
+// Returns a function that can be used to login
 Handle<Value> Spotify::WithApplicationKey(const Arguments& args) {
   HandleScope scope;
 
+  // TODO(liesen): implement reading of application key
+  /*
   if (args.Length() == 0) {
     return scope.Close(Undefined());
   }
@@ -46,8 +37,12 @@ Handle<Value> Spotify::WithApplicationKey(const Arguments& args) {
       Local<Object> x = array->CloneElementAt(i);
     }
   }
+  */
 
-  return scope.Close(Undefined());
+  Local<FunctionTemplate> t = FunctionTemplate::New(Login);
+  Local<Function> login = t->GetFunction();
+  login->SetName(String::NewSymbol("login"));
+  return scope.Close(login);
 }
 
 // See Session::Login 
