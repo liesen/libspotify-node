@@ -11,7 +11,7 @@ test(spotify, 'withApplicationKey')
 
 if (test(spotify, 'login')) {
   log(spotify.login)
-  login("username", "password", onError, onSession);
+  spotify.login("username", "password", onError, onSession);
 
   function onError(message) {
     log(this)
