@@ -10,7 +10,7 @@ namespace spotify {
 
 class Session : public node::EventEmitter {
  public:
-  // Login to Spotify. /error_callback/ is called with an error message if 
+  // Login to Spotify. /error_callback/ is called with an error message if
   // login fails; otherwise /success_callback/ is called with the session
   // object
   static void Login(const v8::Handle<v8::Object> self,
@@ -43,9 +43,7 @@ class Session : public node::EventEmitter {
   sp_session* session_;
   sp_session_callbacks* callbacks_;
   sp_session_config* config_;
-
 };
-
 }
 
-#endif
+#endif  // SPOTIFY_SESSION_H_
