@@ -8,37 +8,35 @@
 
 namespace spotify {
 
-using namespace v8;
-using namespace node;
-
-class Session : public EventEmitter {
+class Session : public node::EventEmitter {
  public:
   // Login to Spotify. /error_callback/ is called with an error message if 
   // login fails; otherwise /success_callback/ is called with the session
   // object
-  static void Login(const Handle<Object> self,
-             Handle<String> username,
-             Handle<String> password,
-             Handle<Function> success_callback,
-             Handle<Function> error_callback);
+  static void Login(const v8::Handle<v8::Object> self,
+                    v8::Handle<v8::String> username,
+                    v8::Handle<v8::String> password,
+                    v8::Handle<v8::Function> success_callback,
+                    v8::Handle<v8::Function> error_callback);
 
-  // Wraps a session in an Object
-  static Local<Object> NewInstance(sp_session* session);
+  // Wraps a session in an v8::Object
+  static v8::Local<v8::Object> New(sp_session* session);
 
  protected:
   // Log out of a session
-  static Handle<Value> Logout(const Arguments& args);
+  static v8::Handle<v8::Value> Logout(const v8::Arguments& args);
 
-  static Handle<Value> ConnectionState(Local<String> property,
-                                       const AccessorInfo& info);
+  static v8::Handle<v8::Value> ConnectionState(v8::Local<v8::String> property,
+                                               const v8::AccessorInfo& info);
 
-  static Handle<Value> PlaylistContainer(Local<String> property,
-                                         const AccessorInfo& info);
+  static v8::Handle<v8::Value> PlaylistContainer(v8::Local<v8::String> property,
+                                                 const v8::AccessorInfo& info);
 
   // Gets the user associated with a session
-  static Handle<Value> User(Local<String> property, const AccessorInfo& info);
+  static v8::Handle<v8::Value> User(v8::Local<v8::String> property,
+                                    const v8::AccessorInfo& info);
 
- private:
+ protected:
   Session(sp_session* session) : session_(session) {
   }
 
