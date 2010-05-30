@@ -1,0 +1,5 @@
+build/
+src/appkey.c
+src/private-example.js
+.lock-wscript
+*.swp
