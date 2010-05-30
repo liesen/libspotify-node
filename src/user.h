@@ -17,7 +17,6 @@ class User {
                                            const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> CanonicalName(v8::Local<v8::String> property,
                                              const v8::AccessorInfo& info);
-
 };
 }
 
