@@ -22,6 +22,13 @@ class Playlist : public ObjectWrap {
   static Handle<Value> IsLoaded(Local<String> property, 
                                 const AccessorInfo& info);
 
+  static Handle<Value> Name(Local<String> property, const AccessorInfo& info);
+
+  static Handle<Value> Owner(Local<String> property, const AccessorInfo& info);
+
+  static Handle<Value> CollaborativeGetter(Local<String> property,
+                                           const AccessorInfo& info);
+
  private:
   sp_playlist* playlist_;
  

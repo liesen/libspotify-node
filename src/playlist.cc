@@ -11,14 +11,11 @@ using namespace node;
 
 Handle<Value> Playlist::New(sp_playlist *playlist) {
   HandleScope scope;
-  Local<ObjectTemplate> t = ObjectTemplate::New();
-  t->SetInternalFieldCount(1);
-
-  t->SetAccessor(String::NewSymbol("isLoaded"), IsLoaded);
-
-  Handle<Object> instance = t->NewInstance();
-  Playlist *p = new Playlist(playlist);
-  p->Wrap(instance);
+  Local<ObjectTemplate> instance_t = ObjectTemplate::New(); 
+  instance_t->SetInternalFieldCount(1);
+  instance_t->SetAccessor(String::NewSymbol("isLoaded"), IsLoaded);
+  Handle<Object> instance = instance_t->NewInstance();
+  (new Playlist(playlist))->Wrap(instance);
   return scope.Close(instance);
 }
 
