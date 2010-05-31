@@ -1,9 +1,11 @@
+#include "playlistcontainer.h"
 #include "session.h"
 #include "user.h"
 
 #include <ev.h>
 #include <libspotify/api.h>
 #include <node.h>
+#include <node_events.h>
 #include <pthread.h>
 #include <signal.h>
 #include <unistd.h>
@@ -17,6 +19,7 @@ extern const size_t g_appkey_size;
 
 namespace spotify {
 
+using namespace node;
 using namespace v8;
 
 static pthread_t g_main_thread = (pthread_t) -1;
@@ -59,7 +62,8 @@ static void logged_out(sp_session* session) {
 }
 
 static void LoggedIn(sp_session *session, sp_error error) {
-  login_callbacks_t* login_callbacks = (login_callbacks_t*) sp_session_userdata(session);
+  login_callbacks_t* login_callbacks = (login_callbacks_t*) sp_session_userdata(
+      session);
   Handle<Object> self = login_callbacks->self; 
 
   if (error != SP_ERROR_OK) {
@@ -68,21 +72,25 @@ static void LoggedIn(sp_session *session, sp_error error) {
     return;
   }
 
-  Handle<Value> args[] = { Session::NewInstance(session) };
+  Handle<Value> args[] = { Session::New(session) };
   login_callbacks->success_callback->Call(self, 1, args); 
 }
 
-Local<Object> Session::NewInstance(sp_session* session) {
+Local<Object> Session::New(sp_session* session) {
   HandleScope scope;
+  Local<FunctionTemplate> t = FunctionTemplate::New();
+  t->SetClassName(NODE_PSYMBOL("spotify.Session"));
+  // t->Inherit(EventEmitter::constructor_template);
+  NODE_SET_PROTOTYPE_METHOD(t, "logout", Logout);
 
-  Local<ObjectTemplate> t =  ObjectTemplate::New();
-  t->SetInternalFieldCount(1);
-  t->SetAccessor(String::NewSymbol("connectionState"), ConnectionState);
-  t->SetAccessor(String::NewSymbol("playlistContainer"), PlaylistContainer);
-  t->SetAccessor(String::NewSymbol("user"), User);
-  NODE_SET_METHOD(t, "logout", Logout);
+  Local<ObjectTemplate> instance_t = t->InstanceTemplate();
+  instance_t->SetInternalFieldCount(1);
+  instance_t->SetAccessor(NODE_PSYMBOL("connectionState"), ConnectionState);
+  instance_t->SetAccessor(NODE_PSYMBOL("playlistContainer"),
+                          PlaylistContainer);
+  instance_t->SetAccessor(NODE_PSYMBOL("user"), User);
 
-  Local<Object> instance = t->NewInstance();
+  Local<Object> instance = t->GetFunction()->NewInstance();
   Session *s = new Session(session);
   s->Wrap(instance);
   return scope.Close(instance);
@@ -161,9 +169,7 @@ Handle<Value> Session::PlaylistContainer(Local<String> property,
   HandleScope scope;
   sp_session* session = ObjectWrap::Unwrap<Session>(info.This())->session_;
   sp_playlistcontainer* pc = sp_session_playlistcontainer(session);
-  // TODO(liesen): 
-  int num_playlists = sp_playlistcontainer_num_playlists(pc);
-  return scope.Close(Integer::New(num_playlists));
+  return scope.Close(PlaylistContainer::New(pc));
 }
 
 Handle<Value> Session::User(Local<String> property, const AccessorInfo& info) {
