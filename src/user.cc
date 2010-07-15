@@ -6,8 +6,6 @@
 
 using namespace v8;
 
-namespace spotify {
-
 Handle<Object> User::NewInstance(sp_user *user) {
   HandleScope scope;
   Local<ObjectTemplate> t = ObjectTemplate::New();
@@ -40,5 +38,4 @@ Handle<Value> User::CanonicalName(Local<String> property,
   sp_user* user = node::ObjectWrap::Unwrap<sp_user>(info.This());
   const char* canonical_name = sp_user_canonical_name(user);
   return String::New(canonical_name);
-}
 }

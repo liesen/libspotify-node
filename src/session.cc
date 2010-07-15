@@ -1,4 +1,5 @@
 #include "session.h"
+#include "user.h"
 
 #include <ev.h>
 #include <libspotify/api.h>
@@ -75,10 +76,15 @@ void Session::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
   t->Inherit(EventEmitter::constructor_template);
-  t->InstanceTemplate()->SetInternalFieldCount(1);
+  
   NODE_SET_PROTOTYPE_METHOD(t, "logout", Logout);
   NODE_SET_PROTOTYPE_METHOD(t, "login", Login);
-  t->InstanceTemplate()->SetAccessor(String::New("connectionState"), ConnectionState);
+
+  Local<ObjectTemplate> instance_t = t->InstanceTemplate();
+  instance_t->SetInternalFieldCount(1);
+  instance_t->SetAccessor(String::New("user"), User);
+  instance_t->SetAccessor(String::New("connectionState"), ConnectionState);
+  
   target->Set(NODE_PSYMBOL("Session"), t->GetFunction());
 }
 
@@ -151,18 +157,24 @@ Handle<Value> Session::Login(const Arguments& args) {
   HandleScope scope;
 
   if (!args.Length() > 0) {
+    // No arguments: bail
   }
 
   if (!args[0]->IsString()) {
+    // First argument not a string (not a user name): bail
   }
 
+  // *(String::Utf8Value(args[0]->ToString()) didn't work out the way I thought
+  // it would, so...
   char* username = new char[args[0]->ToString()->Utf8Length()];
   args[0]->ToString()->WriteUtf8(username);
 
   if (!args.Length() > 1) {
+    // No password argument: bail
   }
 
   if (!args[1]->IsString()) {
+    // Password argument not a string: bail
   }
 
   char* password = new char[args[1]->ToString()->Utf8Length()];
@@ -193,3 +205,17 @@ Handle<Value> Session::ConnectionState(Local<String> property,
   return scope.Close(Integer::New(connectionstate));
 }
 
+Handle<Value> Session::User(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  Session* s = Unwrap<Session>(info.This());
+  sp_user* user = sp_session_user(s->session_);
+
+  // The user property is exposed via a session object before the session
+  // is connected/logged in, in which case the user object isn't initialized
+  // and something weird has to be returned
+  if (!user) {
+    return scope.Close(Undefined());
+  }
+
+  return scope.Close(User::NewInstance(user));
+}

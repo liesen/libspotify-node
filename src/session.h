@@ -26,11 +26,12 @@ class Session : public node::EventEmitter {
   /*
   static v8::Handle<v8::Value> PlaylistContainer(v8::Local<v8::String> property,
                                                  const v8::AccessorInfo& info);
+  */
 
   // Gets the user associated with a session
   static v8::Handle<v8::Value> User(v8::Local<v8::String> property,
                                     const v8::AccessorInfo& info);
-  */
+
   void EmitLogMessage(const char* message);
 
   void Loop();

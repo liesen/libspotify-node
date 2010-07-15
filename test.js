@@ -28,6 +28,7 @@ session.addListener('logged_in', function (err) {
     return;
   }
 
+  sys.puts('user display name: ' + session.user.displayName);
   session.logout();
 });
 

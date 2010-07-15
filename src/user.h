@@ -5,8 +5,6 @@
 #include <libspotify/api.h>
 #include <node.h>
 
-namespace spotify {
-
 class User {
  public:
   static v8::Handle<v8::Object> NewInstance(sp_user *user);
@@ -18,6 +16,5 @@ class User {
   static v8::Handle<v8::Value> CanonicalName(v8::Local<v8::String> property,
                                              const v8::AccessorInfo& info);
 };
-}
 
 #endif  // SPOTIFY_USER_H_
