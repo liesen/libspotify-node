@@ -1,4 +1,4 @@
-srcdir = "src"
+srcdir = "."
 blddir = 'build'
 VERSION = '0.0.1'
 
@@ -43,3 +43,4 @@ def shutdown():
   else:
     if exists('build/default/binding.node'):
       copy('build/default/binding.node', 'spotify/binding.node')
+
