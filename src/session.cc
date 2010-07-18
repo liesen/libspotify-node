@@ -36,28 +36,25 @@ static void runloop_tick(EV_P_ ev_timer *w, int revents) {
 
 static void runloop_notify_tick(EV_P_ ev_async *w, int revents) {
   Session *s = static_cast<Session*>(w->data);
-  printf("runloop_notify_tick\n");
+  //printf("runloop_notify_tick\n");
   s->ProcessEvents();
 }
 
 static void notify_main_thread(sp_session* session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  printf("notify_main_thread\n");
+  //printf("notify_main_thread\n");
   ev_async_send(EV_DEFAULT_UC_ &g_runloop_async);
-  //printf("did call ev_async_send\n");
 }
 
 void Session::ProcessEvents() {
-  printf("Session::ProcessEvents\n");
+  //printf("Session::ProcessEvents\n");
   int timeout = 0;
   // stop timer
   ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
   
-  //pthread_sigmask(SIG_BLOCK, &s->_runloopSigset, NULL);
   if (this->session_)
     sp_session_process_events(this->session_, &timeout);
-  //printf("next runloop_tick in %.1f s\n", ((float)timeout)/1000.0);
-  //pthread_sigmask(SIG_UNBLOCK, &s->_runloopSigset, NULL);
+  //printf("next runloop_tick in %d ms\n", timeout);
   
   // schedule next tick
   ev_timer_set(&g_runloop_timer, ((float)timeout)/1000.0, 0.0);
@@ -86,12 +83,8 @@ static void MessageToUser(sp_session* session, const char* data) {
 static void LoggedOut(sp_session* session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));  
   s->Emit(String::New("logged_out"), 0, NULL);
-  ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
   ev_unref(EV_DEFAULT_UC);
-  ev_async_stop(EV_DEFAULT_UC_ &g_runloop_async);
-  ev_unref(EV_DEFAULT_UC);
-  //ev_unloop(EV_A_ EVUNLOOP_ONE);
-  //printf("ev_depth => %d\n", ev_depth(EV_DEFAULT_UC));
+  //printf("ev_loop_depth => %d\n", ev_loop_depth(EV_DEFAULT_UC));
 }
 
 static void LoggedIn(sp_session* session, sp_error error) {
@@ -129,7 +122,8 @@ void Session::Initialize(Handle<Object> target) {
 }
 
 Session::~Session() {
-
+  ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
+  ev_async_stop(EV_DEFAULT_UC_ &g_runloop_async);
   printf("session destroyed\n");
 }
 
@@ -187,6 +181,7 @@ Handle<Value> Session::New(const Arguments& args) {
   // todo: g_runloop_timer --> instance member
   g_runloop_timer.data = s;
   ev_timer_init(&g_runloop_timer, runloop_tick, 60.0, 0.0);
+  ev_unref(EV_DEFAULT_UC);
   // no need to start this as it's started by first invocation after notify_main_thread
   //ev_timer_start(EV_DEFAULT_UC_ &g_runloop_timer);
 
@@ -231,6 +226,7 @@ Handle<Value> Session::Login(const Arguments& args) {
   };
   addListener->Call(args.This(), 2, argv);
   
+  ev_ref(EV_DEFAULT_UC);
   sp_session_login(s->session_, username, password);
   
   //s->Loop();
@@ -243,7 +239,7 @@ Handle<Value> Session::Logout(const Arguments& args) {
   
   if (args.Length() != 1) SP_THROW(TypeError, "login takes exactly one arguments");
   if (!args[0]->IsFunction()) SP_THROW(TypeError, "last argument must be a function");
-  
+
   Session* s = Unwrap<Session>(args.This());
 
   // todo: macrofy this repetitive task (of adding a listener)
