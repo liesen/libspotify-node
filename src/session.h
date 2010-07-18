@@ -20,10 +20,9 @@ class Session : public node::EventEmitter {
       v8::Local<v8::String> property,
       const v8::AccessorInfo& info);
 
-  /*
-  static v8::Handle<v8::Value> PlaylistContainer(v8::Local<v8::String> property,
-                                                 const v8::AccessorInfo& info);
-  */
+  static v8::Handle<v8::Value> PlaylistContainerGetter(
+      v8::Local<v8::String> property,
+      const v8::AccessorInfo& info);
 
   // Gets the user associated with a session
   static v8::Handle<v8::Value> UserGetter(v8::Local<v8::String> property,
