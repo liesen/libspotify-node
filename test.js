@@ -1,10 +1,11 @@
-var spotify = require('./spotify');
-var sys = require('sys');
+var sys = require('sys'),
+    spotify = require('./spotify'),
+    account = require('./account');
 
 sys.puts('spotify api version: ' + spotify.version);
 
 var config = { 
-  applicationKey: 'x',
+  applicationKey: account.applicationKey,
   cacheLocation: '.cache'
 };
 
@@ -23,7 +24,7 @@ session.addListener('message_to_user', function (message) {
   sys.puts('message_to_user: ' + message);
 });
 
-session.login('username', 'password', function (err) {
+session.login(account.username, account.password, function (err) {
   sys.puts('!!! logged_in'); 
   if (err) return sys.error(err.stack || err);
   sys.puts('logged in as: ' + session.user.displayName+' -- logging out...');
