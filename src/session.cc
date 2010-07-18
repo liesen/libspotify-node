@@ -1,3 +1,4 @@
+#include "playlistcontainer.h"
 #include "session.h"
 #include "user.h"
 
@@ -122,7 +123,10 @@ void Session::Initialize(Handle<Object> target) {
   Local<ObjectTemplate> instance_t = t->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::New("user"), UserGetter);
-  instance_t->SetAccessor(String::New("connectionState"), ConnectionStateGetter);
+  instance_t->SetAccessor(String::New("connectionState"),
+                          ConnectionStateGetter);
+  instance_t->SetAccessor(String::New("playlistContainer"),
+                          PlaylistContainerGetter);
   
   target->Set(NODE_PSYMBOL("Session"), t->GetFunction());
 }
@@ -257,6 +261,15 @@ Handle<Value> Session::ConnectionStateGetter(Local<String> property, const Acces
   Session* s = Unwrap<Session>(info.This());
   int connectionstate = sp_session_connectionstate(s->session_);
   return scope.Close(Integer::New(connectionstate));
+}
+
+
+Handle<Value> Session::PlaylistContainerGetter(Local<String> property,
+                                               const AccessorInfo& info) {
+  HandleScope scope;
+  Session* s = Unwrap<Session>(info.This());
+  sp_playlistcontainer* pc = sp_session_playlistcontainer(s->session_);
+  return scope.Close(PlaylistContainer::New(pc));
 }
 
 Handle<Value> Session::UserGetter(Local<String> property, const AccessorInfo& info) {
