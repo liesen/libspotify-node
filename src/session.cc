@@ -11,16 +11,11 @@
 #include <unistd.h>
 #include <v8.h>
 
-#include "appkey.c"
-
 using namespace node;
 using namespace v8;
 
 #define SP_THROW(_type_, _msg_)\
   return ThrowException(Exception::_type_(String::New(_msg_)))
-
-extern const uint8_t g_appkey[];
-extern const size_t g_appkey_size;
 
 static ev_timer g_runloop_timer;
 static ev_check g_runloop_check;
@@ -156,33 +151,39 @@ Handle<Value> Session::New(const Arguments& args) {
     /* api_version */           SPOTIFY_API_VERSION,
     /* cache_location */        ".cache",
     /* settings_location */     ".settings",
-    /* application_key */       g_appkey,
-    /* application_key_size */  g_appkey_size,
+    /* application_key */       NULL,
+    /* application_key_size */  0,
     /* user_agent */            "node-spotify",
     /* callbacks */             &callbacks,
     /* userdata */              s,
   };
 
   if (args.Length() > 0) {
-    if (!args[0]->IsObject()) {
-      return ThrowException(Exception::TypeError(
-        String::New("first argument must be an object")));
-    }
+    if (!args[0]->IsObject())
+      SP_THROW(TypeError, "first argument must be an object");
 
     Local<Object> configuration = args[0]->ToObject();
 
     // applicationKey
     if (configuration->Has(String::New("applicationKey"))) {
-      Handle<Value> v = configuration->Get(String::New("applicationKey"));
-      if (!v->IsString()) SP_THROW(TypeError, "applicationKey must be a string");
-      config.application_key = g_appkey;
-      config.application_key_size = g_appkey_size;
+      Local<Value> v = configuration->Get(String::New("applicationKey"));
+      if (!v->IsArray()) SP_THROW(TypeError, "applicationKey must be an array of integers");
+      Local<Array> a = Local<Array>::Cast(v);
+      uint8_t *keybuf = new uint8_t[a->Length()];
+      config.application_key_size = a->Length();
+      for (int i = 0; i < a->Length(); i++) {
+        keybuf[i] = a->Get(i)->Uint32Value();
+      }
+      config.application_key = keybuf;
+      // todo: save ref to keybuf so we can free it at dealloc
     }
     
     // userAgent
     if (configuration->Has(String::New("userAgent"))) {
       Handle<Value> v = configuration->Get(String::New("userAgent"));
       if (!v->IsString()) SP_THROW(TypeError, "userAgent must be a string");
+      config.user_agent = new char[v->ToString()->Utf8Length()];
+      v->ToString()->WriteUtf8((char *)config.user_agent);
     }
   }
   
@@ -201,10 +202,8 @@ Handle<Value> Session::New(const Arguments& args) {
   sp_session* session;
   sp_error error = sp_session_init(&config, &session);
 
-  if (error != SP_ERROR_OK) {
-    fprintf(stderr, "%s", sp_error_message(error));
-    return Undefined();
-  }
+  if (error != SP_ERROR_OK)
+    SP_THROW(Error, sp_error_message(error));
 
   s->session_ = session;
   s->thread_id_ = pthread_self();
