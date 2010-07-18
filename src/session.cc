@@ -12,12 +12,14 @@
 
 #include "appkey.c"
 
-extern const uint8_t g_appkey[];
-extern const size_t g_appkey_size;
-
-
 using namespace node;
 using namespace v8;
+
+#define SP_THROW(_type_, _msg_)\
+  return ThrowException(Exception::_type_(String::New(_msg_)))
+
+extern const uint8_t g_appkey[];
+extern const size_t g_appkey_size;
 
 static int g_exit_code = -1;
 
@@ -45,12 +47,14 @@ void Session::Loop() {
 
 void Session::EmitLogMessage(const char* message) {
   HandleScope scope;
-  Local<Value> argv[] = { String::New(message) };
+  Handle<Value> argv[1];
+  argv[0] = Handle<Value>(String::New(message));
   Emit(String::New("log_message"), 1, argv);
 }
 
 static void LogMessage(sp_session* session, const char* data) {
-  fprintf(stderr, "sp: %s", data);
+  printf("log_message: %s", data);
+  fflush(stdout);
 }
 
 static void LoggedOut(sp_session* session) {
@@ -61,8 +65,13 @@ static void LoggedOut(sp_session* session) {
 
 static void LoggedIn(sp_session* session, sp_error error) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  Local<Value> argv[] = { Integer::New(error) };
-  s->Emit(String::New("logged_in"), 1, argv);
+  // todo: simplify this
+  if (error != SP_ERROR_OK) {
+    Local<Value> argv[] = { Exception::Error(String::New(sp_error_message(error))) };
+    s->Emit(String::New("logged_in"), 1, argv);
+  } else {
+    s->Emit(String::New("logged_in"), 0, NULL);
+  }
 }
 
 static void ConnectionError(sp_session* session, sp_error error) {
@@ -144,8 +153,8 @@ Handle<Value> Session::New(const Arguments& args) {
 
   s->session_ = session;
   s->thread_id_ = pthread_self();
-  s->Wrap(args.This());
   signal(SIGIO, &signal_ignore);
+  s->Wrap(args.Holder());
   return args.This();
 }
 
@@ -155,32 +164,30 @@ void Session::Login(const char* username, const char* password) {
 
 Handle<Value> Session::Login(const Arguments& args) {
   HandleScope scope;
+  
+  if (args.Length() != 3) SP_THROW(TypeError, "login takes exactly 3 arguments");
+  if (!args[0]->IsString()) SP_THROW(TypeError, "first argument must be a string");
+  if (!args[1]->IsString()) SP_THROW(TypeError, "second argument must be a string");
+  if (!args[2]->IsFunction()) SP_THROW(TypeError, "last argument must be a function");
 
-  if (!args.Length() > 0) {
-    // No arguments: bail
-  }
-
-  if (!args[0]->IsString()) {
-    // First argument not a string (not a user name): bail
-  }
+  Session* s = Unwrap<Session>(args.This());
 
   // *(String::Utf8Value(args[0]->ToString()) didn't work out the way I thought
   // it would, so...
   char* username = new char[args[0]->ToString()->Utf8Length()];
   args[0]->ToString()->WriteUtf8(username);
 
-  if (!args.Length() > 1) {
-    // No password argument: bail
-  }
-
-  if (!args[1]->IsString()) {
-    // Password argument not a string: bail
-  }
-
   char* password = new char[args[1]->ToString()->Utf8Length()];
   args[1]->ToString()->WriteUtf8(password);
 
-  Session* s = Unwrap<Session>(args.This());
+  // todo: macrofy this repetitive task (of adding a listener)
+  Local<Function> addListener = Function::Cast(*args.This()->Get(String::New("addListener")));
+  Local<Value> argv[] = {
+    String::New("logged_in"),
+    args[2]
+  };
+  addListener->Call(args.This(), 2, argv);
+  
   s->Login(username, password);
   s->Loop();
   return scope.Close(Undefined());
@@ -188,7 +195,17 @@ Handle<Value> Session::Login(const Arguments& args) {
 
 Handle<Value> Session::Logout(const Arguments& args) {
   HandleScope scope;
+  
+  if (args.Length() != 1) SP_THROW(TypeError, "login takes exactly one arguments");
+  if (!args[0]->IsFunction()) SP_THROW(TypeError, "last argument must be a function");
+  
   Session* s = Unwrap<Session>(args.This());
+
+  // todo: macrofy this repetitive task (of adding a listener)
+  Local<Function> addListener = Function::Cast(*args.This()->Get(String::New("addListener")));
+  Local<Value> argv[] = { String::New("logged_out"), args[0] };
+  addListener->Call(args.This(), 2, argv);
+
   s->Logout();
   return scope.Close(Undefined());
 }
