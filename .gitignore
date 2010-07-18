@@ -3,4 +3,7 @@ src/appkey.c
 src/private-example.js
 src/spojs
 .lock-wscript
+test*-private.js
+/.cache
 *.swp
+*.node
