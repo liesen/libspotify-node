@@ -43,7 +43,7 @@ static void SpotifyRunloopAsyncProcess(EV_P_ ev_async *w, int revents) {
   s->ProcessEvents();
 }
 
-static void notify_main_thread(sp_session* session) {
+static void NotifyMainThread(sp_session* session) {
   // Called by a background thread (controlled by libspotify) when we need to
   // query sp_session_process_events, which is handled by
   // Session::ProcessEvents. ev_async_send queues a call on the main ev runloop.
@@ -99,13 +99,14 @@ static void LogMessage(sp_session* session, const char* data) {
 
 static void MessageToUser(sp_session* session, const char* data) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  HandleScope scope;
+  assert(s->thread_id_ == pthread_self() /* or we will crash */);
   Local<Value> argv[] = { String::New(data) };
   s->Emit(String::New("message_to_user"), 1, argv);
 }
 
 static void LoggedOut(sp_session* session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
+  assert(s->thread_id_ == pthread_self() /* or we will crash */);
   if (s->logout_callback_) {
     assert((*s->logout_callback_)->IsFunction());
     (*s->logout_callback_)->Call(Context::GetCurrent()->Global(), 0, NULL);
@@ -120,6 +121,7 @@ static void LoggedIn(sp_session* session, sp_error error) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
   assert(s->login_callback_ != NULL);
   assert((*s->login_callback_)->IsFunction());
+  assert(s->thread_id_ == pthread_self() /* or we will crash */);
   if (error != SP_ERROR_OK) {
     Local<Value> argv[] = { Exception::Error(String::New(sp_error_message(error))) };
     (*s->login_callback_)->Call(Context::GetCurrent()->Global(), 1, argv);
@@ -130,8 +132,15 @@ static void LoggedIn(sp_session* session, sp_error error) {
   s->login_callback_ = NULL;
 }
 
+static void MetadataUpdated(sp_session *session) {
+  Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
+  assert(s->thread_id_ == pthread_self() /* or we will crash */);
+  s->Emit(String::New("metadataUpdated"), 0, NULL);
+}
+
 static void ConnectionError(sp_session* session, sp_error error) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
+  assert(s->thread_id_ == pthread_self() /* or we will crash */);
   Local<Value> argv[] = { String::New(sp_error_message(error)) };
   s->Emit(String::New("connection_error"), 1, argv);
 }
@@ -178,10 +187,10 @@ Handle<Value> Session::New(const Arguments& args) {
   static sp_session_callbacks callbacks = {
     /* logged_in */             LoggedIn,
     /* logged_out */            LoggedOut,
-    /* metadata_updated */      NULL,
+    /* metadata_updated */      MetadataUpdated,
     /* connection_error */      ConnectionError,
     /* message_to_user */       MessageToUser,
-    /* notify_main_thread */    notify_main_thread,
+    /* notify_main_thread */    NotifyMainThread,
     /* music_delivery */        NULL, // we don't play music
     /* play_token_lost */       NULL, // we don't play music
     /* log_message */           LogMessage,
@@ -238,7 +247,7 @@ Handle<Value> Session::New(const Arguments& args) {
   ev_timer_init(&s->runloop_timer_, SpotifyRunloopTimerProcess, 60.0, 0.0);
   ev_unref(EV_DEFAULT_UC);
   // Note: No need to start the timer as it's started by first invocation after
-  // notify_main_thread
+  // NotifyMainThread
 
   // ev_async for libspotify background thread to emit log message on main
   s->logmsg_async_.data = s;
