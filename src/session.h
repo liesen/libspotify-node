@@ -26,7 +26,6 @@ class Session : public node::EventEmitter {
   static v8::Handle<v8::Value> UserGetter(v8::Local<v8::String> property,
                                           const v8::AccessorInfo& info);
 
-  void EmitLogMessage(const char* message);
   void ProcessEvents();
 
   Session(sp_session* session);
