@@ -77,19 +77,24 @@ void Session::DequeueLogMessages() {
 }
 
 static void SpotifyRunloopAsyncLogMessage(EV_P_ ev_async *w, int revents) {
-  Session *s = static_cast<Session*>(((void **)w->data)[0]);
+  Session *s = static_cast<Session*>(w->data);
   s->DequeueLogMessages();
 }
 
 static void LogMessage(sp_session* session, const char* data) {
   Session* s = static_cast<Session*>(sp_session_userdata(session));
-  //printf("logMessage: %s", data); fflush(stdout);
-  // Enqueue log message
-  log_message_t *msg = new log_message_t;
-  msg->message = (const char *)strdup(data);
-  nt_atomic_enqueue(&s->log_messages_q_, msg, offsetof(log_message_t, next));
-  // Signal we need to dequeue the message queue: SpotifyRunloopAsyncLogMessage
-  ev_async_send(EV_DEFAULT_UC_ &s->logmsg_async_);
+  if (pthread_self() == s->thread_id_) {
+    // Called from the main runloop thread -- emit directly
+    Local<Value> argv[] = { String::New(data) };
+    s->Emit(logMessage_symbol, 1, argv);
+  } else {
+    // Called from a background thread -- queue and notify
+    log_message_t *msg = new log_message_t;
+    msg->message = (const char *)strdup(data);
+    nt_atomic_enqueue(&s->log_messages_q_, msg, offsetof(log_message_t, next));
+    // Signal we need to dequeue the message queue: SpotifyRunloopAsyncLogMessage
+    ev_async_send(EV_DEFAULT_UC_ &s->logmsg_async_);
+  }
 }
 
 static void MessageToUser(sp_session* session, const char* data) {
@@ -155,7 +160,6 @@ void Session::Initialize(Handle<Object> target) {
 Session::~Session() {
   ev_timer_stop(EV_DEFAULT_UC_ &this->runloop_timer_);
   ev_async_stop(EV_DEFAULT_UC_ &this->runloop_async_);
-  free(this->logmsg_async_.data);
   this->DequeueLogMessages();
 }
 
@@ -237,11 +241,7 @@ Handle<Value> Session::New(const Arguments& args) {
   // notify_main_thread
 
   // ev_async for libspotify background thread to emit log message on main
-  // Oh my this is kind of an ugly hack:
-  void **d = (void **)calloc(2, sizeof(void*));
-  d[0] = s;
-  d[1] = NULL; // log message
-  s->logmsg_async_.data = (void *)d;
+  s->logmsg_async_.data = s;
   ev_async_init(&s->logmsg_async_, SpotifyRunloopAsyncLogMessage);
   ev_async_start(EV_DEFAULT_UC_ &s->logmsg_async_);
   ev_unref(EV_DEFAULT_UC); // don't let a lingering async ev keep the main loop
