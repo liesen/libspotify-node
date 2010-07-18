@@ -34,11 +34,18 @@ class Session : public node::EventEmitter {
   void EmitLogMessage(const char* message);
   void ProcessEvents();
 
-  Session(sp_session* session) : session_(session), thread_id_((pthread_t) -1) {}
+  Session(sp_session* session)
+    : session_(session)
+    , thread_id_((pthread_t) -1)
+    , login_callback_(NULL)
+    , logout_callback_(NULL)
+    {}
   ~Session();
 
   sp_session* session_;
   pthread_t thread_id_;
+  v8::Persistent<v8::Function> *logout_callback_;
+  v8::Persistent<v8::Function> *login_callback_;
 };
 
 #endif  // SPOTIFY_SESSION_H_

@@ -82,20 +82,26 @@ static void MessageToUser(sp_session* session, const char* data) {
 
 static void LoggedOut(sp_session* session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));  
-  s->Emit(String::New("logged_out"), 0, NULL);
+  assert(s->logout_callback_ != NULL);
+  assert((*s->logout_callback_)->IsFunction());
+  (*s->logout_callback_)->Call(Context::GetCurrent()->Global(), 0, NULL);
+  cb_destroy(s->logout_callback_);
+  s->logout_callback_ = NULL;
   ev_unref(EV_DEFAULT_UC);
-  //printf("ev_loop_depth => %d\n", ev_loop_depth(EV_DEFAULT_UC));
 }
 
 static void LoggedIn(sp_session* session, sp_error error) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-
+  assert(s->login_callback_ != NULL);
+  assert((*s->login_callback_)->IsFunction());
   if (error != SP_ERROR_OK) {
     Local<Value> argv[] = { Exception::Error(String::New(sp_error_message(error))) };
-    s->Emit(String::New("logged_in"), 1, argv);
+    (*s->login_callback_)->Call(Context::GetCurrent()->Global(), 1, argv);
   } else {
-    s->Emit(String::New("logged_in"), 0, NULL);
+    (*s->login_callback_)->Call(Context::GetCurrent()->Global(), 0, NULL);
   }
+  cb_destroy(s->login_callback_);
+  s->login_callback_ = NULL;
 }
 
 static void ConnectionError(sp_session* session, sp_error error) {
@@ -218,13 +224,9 @@ Handle<Value> Session::Login(const Arguments& args) {
   char* password = new char[args[1]->ToString()->Utf8Length()];
   args[1]->ToString()->WriteUtf8(password);
 
-  // todo: macrofy this repetitive task (of adding a listener)
-  Local<Function> addListener = Function::Cast(*args.This()->Get(String::New("addListener")));
-  Local<Value> argv[] = {
-    String::New("logged_in"),
-    args[2]
-  };
-  addListener->Call(args.This(), 2, argv);
+  // save login callback
+  if (s->login_callback_) cb_destroy(s->login_callback_);
+  s->login_callback_ = cb_persist(args[2]);
   
   ev_ref(EV_DEFAULT_UC);
   sp_session_login(s->session_, username, password);
@@ -241,12 +243,11 @@ Handle<Value> Session::Logout(const Arguments& args) {
   if (!args[0]->IsFunction()) SP_THROW(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
-
-  // todo: macrofy this repetitive task (of adding a listener)
-  Local<Function> addListener = Function::Cast(*args.This()->Get(String::New("addListener")));
-  Local<Value> argv[] = { String::New("logged_out"), args[0] };
-  addListener->Call(args.This(), 2, argv);
-
+  
+  // save logout callback
+  if (s->logout_callback_) cb_destroy(s->login_callback_);
+  s->logout_callback_ = cb_persist(args[0]);
+  
   sp_session_logout(s->session_);
   return Undefined();
 }
