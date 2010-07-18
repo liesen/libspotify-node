@@ -20,6 +20,7 @@ def set_options(opts):
   opts.tool_options('compiler_cxx')
 
 def configure(conf):
+  # todo: add --debug flag so we can set NDEBUG conditionally, omitting asserts.
   conf.check_tool('compiler_cxx')
   conf.check_tool('node_addon')
   if PLATFORM_IS_DARWIN:
