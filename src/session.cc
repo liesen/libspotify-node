@@ -21,54 +21,47 @@ using namespace v8;
 extern const uint8_t g_appkey[];
 extern const size_t g_appkey_size;
 
-static int g_exit_code = -1;
-
 static ev_timer g_runloop_timer;
 static ev_check g_runloop_check;
+static ev_async g_runloop_async;
 
 static void signal_ignore(int signo) {
 }
 
 static void runloop_tick(EV_P_ ev_timer *w, int revents) {
-  int timeout = -1;
   Session *s = static_cast<Session*>(w->data);
-  
-  // stop timer
-  ev_timer_stop(EV_DEFAULT_UC_ w);
-  
-  //pthread_sigmask(SIG_BLOCK, &s->_runloopSigset, NULL);
   printf("runloop_tick\n");
-  sp_session_process_events(s->session_, &timeout);
-  //printf("next runloop_tick in %.1f s\n", ((float)timeout)/1000.0);
-  //pthread_sigmask(SIG_UNBLOCK, &s->_runloopSigset, NULL);
-  
-  // schedule next tick
-  ev_timer_set(w, ((float)timeout)/1000.0, 0.0);
-  ev_timer_start(EV_DEFAULT_UC_ w);
+  s->ProcessEvents();
+}
+
+static void runloop_notify_tick(EV_P_ ev_async *w, int revents) {
+  Session *s = static_cast<Session*>(w->data);
+  printf("runloop_notify_tick\n");
+  s->ProcessEvents();
 }
 
 static void notify_main_thread(sp_session* session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
   printf("notify_main_thread\n");
-  ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
-  ev_timer_set(&g_runloop_timer, 0.0, 0.0);
-  ev_timer_start(EV_DEFAULT_UC_ &g_runloop_timer);
+  ev_async_send(EV_DEFAULT_UC_ &g_runloop_async);
+  //printf("did call ev_async_send\n");
 }
 
-void Session::Loop() {
-  sigset_t sigset;
-  sigemptyset(&sigset);
-  sigaddset(&sigset, SIGIO);
-
-  while (g_exit_code < 0) { 
-    int timeout = -1;
-    pthread_sigmask(SIG_BLOCK, &sigset, NULL);
+void Session::ProcessEvents() {
+  printf("Session::ProcessEvents\n");
+  int timeout = 0;
+  // stop timer
+  ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
+  
+  //pthread_sigmask(SIG_BLOCK, &s->_runloopSigset, NULL);
+  if (this->session_)
     sp_session_process_events(this->session_, &timeout);
-    pthread_sigmask(SIG_UNBLOCK, &sigset, NULL);
-    printf("next runloop_tick in %d ms\n", timeout);
-    usleep(timeout * 1000);
-    printf("runloop again\n");
-  }
+  //printf("next runloop_tick in %.1f s\n", ((float)timeout)/1000.0);
+  //pthread_sigmask(SIG_UNBLOCK, &s->_runloopSigset, NULL);
+  
+  // schedule next tick
+  ev_timer_set(&g_runloop_timer, ((float)timeout)/1000.0, 0.0);
+  ev_timer_start(EV_DEFAULT_UC_ &g_runloop_timer);
 }
 
 void Session::EmitLogMessage(const char* message) {
@@ -91,10 +84,14 @@ static void MessageToUser(sp_session* session, const char* data) {
 }
 
 static void LoggedOut(sp_session* session) {
-  g_exit_code = 0;
-  Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
+  Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));  
   s->Emit(String::New("logged_out"), 0, NULL);
+  ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
+  ev_unref(EV_DEFAULT_UC);
+  ev_async_stop(EV_DEFAULT_UC_ &g_runloop_async);
+  ev_unref(EV_DEFAULT_UC);
+  //ev_unloop(EV_A_ EVUNLOOP_ONE);
+  //printf("ev_depth => %d\n", ev_depth(EV_DEFAULT_UC));
 }
 
 static void LoggedIn(sp_session* session, sp_error error) {
@@ -129,6 +126,11 @@ void Session::Initialize(Handle<Object> target) {
   instance_t->SetAccessor(String::New("connectionState"), ConnectionStateGetter);
   
   target->Set(NODE_PSYMBOL("Session"), t->GetFunction());
+}
+
+Session::~Session() {
+
+  printf("session destroyed\n");
 }
 
 Handle<Value> Session::New(const Arguments& args) {
@@ -178,10 +180,15 @@ Handle<Value> Session::New(const Arguments& args) {
   }
   
   // register in the runloop
+  g_runloop_async.data = s;
+  ev_async_init(&g_runloop_async, runloop_notify_tick);
+  ev_async_start(EV_DEFAULT_UC_ &g_runloop_async);
+  ev_unref(EV_DEFAULT_UC);
   // todo: g_runloop_timer --> instance member
-  ev_timer_init(&g_runloop_timer, runloop_tick, 0.0, 0.0);
-  ev_timer_start(EV_DEFAULT_UC_ &g_runloop_timer);
   g_runloop_timer.data = s;
+  ev_timer_init(&g_runloop_timer, runloop_tick, 60.0, 0.0);
+  // no need to start this as it's started by first invocation after notify_main_thread
+  //ev_timer_start(EV_DEFAULT_UC_ &g_runloop_timer);
 
   sp_session* session;
   sp_error error = sp_session_init(&config, &session);
@@ -248,8 +255,7 @@ Handle<Value> Session::Logout(const Arguments& args) {
   return Undefined();
 }
 
-Handle<Value> Session::ConnectionStateGetter(Local<String> property,
-                                       const AccessorInfo& info) {
+Handle<Value> Session::ConnectionStateGetter(Local<String> property, const AccessorInfo& info) {
   HandleScope scope;
   Session* s = Unwrap<Session>(info.This());
   int connectionstate = sp_session_connectionstate(s->session_);
