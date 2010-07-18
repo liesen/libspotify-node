@@ -125,8 +125,7 @@ void Session::Initialize(Handle<Object> target) {
   instance_t->SetAccessor(String::New("user"), UserGetter);
   instance_t->SetAccessor(String::New("connectionState"),
                           ConnectionStateGetter);
-  instance_t->SetAccessor(String::New("playlistContainer"),
-                          PlaylistContainerGetter);
+  instance_t->SetAccessor(String::New("playlists"), PlaylistContainerGetter);
   
   target->Set(NODE_PSYMBOL("Session"), t->GetFunction());
 }
@@ -139,27 +138,29 @@ Session::~Session() {
 
 Handle<Value> Session::New(const Arguments& args) {
   Session* s = new Session(NULL);
-  sp_session_callbacks callbacks = {
-    /* logged_in */ LoggedIn,
-    /* logged_out */ LoggedOut,
-    /* metadata_updated */ NULL,
-    /* connection_error */ ConnectionError,
-    /* message_to_user */ MessageToUser,
-    /* notify_main_thread */ notify_main_thread,
-    /* music_delivery */ NULL,
-    /* play_token_lost */ NULL,
-    /* log_message */ LogMessage,
-    /* end_of_track */ NULL,
+  
+  static sp_session_callbacks callbacks = {
+    /* logged_in */             LoggedIn,
+    /* logged_out */            LoggedOut,
+    /* metadata_updated */      NULL,
+    /* connection_error */      ConnectionError,
+    /* message_to_user */       MessageToUser,
+    /* notify_main_thread */    notify_main_thread,
+    /* music_delivery */        NULL, // we don't play music
+    /* play_token_lost */       NULL, // we don't play music
+    /* log_message */           LogMessage,
+    /* end_of_track */          NULL, // we don't play music
   };
+
   sp_session_config config = {
-    /* api_version */ SPOTIFY_API_VERSION,
-    /* cache_location */ ".cache",
-    /* settings_location */ ".settings",
-    /* application_key */ g_appkey,
-    /* application_key_size */ g_appkey_size,
-    /* user agent */ "spotify-node",
-    /* callbacks */ &callbacks,
-    /* userdata */ s 
+    /* api_version */           SPOTIFY_API_VERSION,
+    /* cache_location */        ".cache",
+    /* settings_location */     ".settings",
+    /* application_key */       g_appkey,
+    /* application_key_size */  g_appkey_size,
+    /* user_agent */            "node-spotify",
+    /* callbacks */             &callbacks,
+    /* userdata */              s,
   };
 
   if (args.Length() > 0) {
@@ -170,16 +171,18 @@ Handle<Value> Session::New(const Arguments& args) {
 
     Local<Object> configuration = args[0]->ToObject();
 
+    // applicationKey
     if (configuration->Has(String::New("applicationKey"))) {
-      Handle<Value> applicationKey = configuration->Get(String::New("applicationKey"));
-
-      if (!applicationKey->IsString()) {
-        return ThrowException(Exception::TypeError(
-            String::New("application key must be a string")));
-      }
-
+      Handle<Value> v = configuration->Get(String::New("applicationKey"));
+      if (!v->IsString()) SP_THROW(TypeError, "applicationKey must be a string");
       config.application_key = g_appkey;
       config.application_key_size = g_appkey_size;
+    }
+    
+    // userAgent
+    if (configuration->Has(String::New("userAgent"))) {
+      Handle<Value> v = configuration->Get(String::New("userAgent"));
+      if (!v->IsString()) SP_THROW(TypeError, "userAgent must be a string");
     }
   }
   
@@ -192,8 +195,8 @@ Handle<Value> Session::New(const Arguments& args) {
   g_runloop_timer.data = s;
   ev_timer_init(&g_runloop_timer, runloop_tick, 60.0, 0.0);
   ev_unref(EV_DEFAULT_UC);
-  // no need to start this as it's started by first invocation after notify_main_thread
-  //ev_timer_start(EV_DEFAULT_UC_ &g_runloop_timer);
+  // Note: No need to start the timer as it's started by first invocation after
+  // notify_main_thread
 
   sp_session* session;
   sp_error error = sp_session_init(&config, &session);
