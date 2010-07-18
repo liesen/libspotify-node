@@ -1,12 +1,12 @@
 #include "session.h"
 #include "user.h"
 
-#include <ev.h>
 #include <libspotify/api.h>
 #include <node.h>
 #include <node_events.h>
 #include <pthread.h>
 #include <signal.h>
+#include <string>
 #include <unistd.h>
 #include <v8.h>
 
@@ -76,6 +76,13 @@ static void LogMessage(sp_session* session, const char* data) {
   fflush(stdout);
 }
 
+static void MessageToUser(sp_session* session, const char* data) {
+  Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
+  HandleScope scope;
+  Local<Value> argv[] = { String::New(data) };
+  s->Emit(String::New("message_to_user"), 1, argv);
+}
+
 static void LoggedOut(sp_session* session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));  
   s->Emit(String::New("logged_out"), 0, NULL);
@@ -89,7 +96,7 @@ static void LoggedOut(sp_session* session) {
 
 static void LoggedIn(sp_session* session, sp_error error) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  // todo: simplify this
+
   if (error != SP_ERROR_OK) {
     Local<Value> argv[] = { Exception::Error(String::New(sp_error_message(error))) };
     s->Emit(String::New("logged_in"), 1, argv);
@@ -133,7 +140,7 @@ Handle<Value> Session::New(const Arguments& args) {
     /* logged_out */ LoggedOut,
     /* metadata_updated */ NULL,
     /* connection_error */ ConnectionError,
-    /* message_to_user */ LogMessage,
+    /* message_to_user */ MessageToUser,
     /* notify_main_thread */ notify_main_thread,
     /* music_delivery */ NULL,
     /* play_token_lost */ NULL,
