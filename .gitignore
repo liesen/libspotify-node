@@ -4,6 +4,7 @@ src/private-example.js
 src/spojs
 .lock-wscript
 test*-private.js
+account.js
 /.cache
 *.swp
 *.node

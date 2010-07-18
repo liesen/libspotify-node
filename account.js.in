@@ -1,0 +1,20 @@
+// This is a template -- please copy (or rename) this file to "account.js" and
+// change the below details to fit your Spotify account. (This file is used by
+// the examples and tests)
+
+// Username and password of a Spotify premium account
+exports.username = 'username'
+exports.password = 'password'
+
+// Your Spotify developer application key
+//
+// How-to:
+//  1. Log in to https://developer.spotify.com/en/libspotify/application-key/
+//  2. Apply for an application key (you should receive it immediately)
+//  3. Click the "c-code" for your key link under "Issued application keys"
+//  4. Copy the hexadecimal numbers and replace the "0x00" placeholders below
+//
+exports.applicationKey = [
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, ...
+]
