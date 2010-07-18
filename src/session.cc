@@ -23,12 +23,36 @@ extern const size_t g_appkey_size;
 
 static int g_exit_code = -1;
 
+static ev_timer g_runloop_timer;
+static ev_check g_runloop_check;
+
 static void signal_ignore(int signo) {
+}
+
+static void runloop_tick(EV_P_ ev_timer *w, int revents) {
+  int timeout = -1;
+  Session *s = static_cast<Session*>(w->data);
+  
+  // stop timer
+  ev_timer_stop(EV_DEFAULT_UC_ w);
+  
+  //pthread_sigmask(SIG_BLOCK, &s->_runloopSigset, NULL);
+  printf("runloop_tick\n");
+  sp_session_process_events(s->session_, &timeout);
+  //printf("next runloop_tick in %.1f s\n", ((float)timeout)/1000.0);
+  //pthread_sigmask(SIG_UNBLOCK, &s->_runloopSigset, NULL);
+  
+  // schedule next tick
+  ev_timer_set(w, ((float)timeout)/1000.0, 0.0);
+  ev_timer_start(EV_DEFAULT_UC_ w);
 }
 
 static void notify_main_thread(sp_session* session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  pthread_kill(s->thread_id_, SIGIO);
+  printf("notify_main_thread\n");
+  ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
+  ev_timer_set(&g_runloop_timer, 0.0, 0.0);
+  ev_timer_start(EV_DEFAULT_UC_ &g_runloop_timer);
 }
 
 void Session::Loop() {
@@ -41,7 +65,9 @@ void Session::Loop() {
     pthread_sigmask(SIG_BLOCK, &sigset, NULL);
     sp_session_process_events(this->session_, &timeout);
     pthread_sigmask(SIG_UNBLOCK, &sigset, NULL);
+    printf("next runloop_tick in %d ms\n", timeout);
     usleep(timeout * 1000);
+    printf("runloop again\n");
   }
 }
 
@@ -60,6 +86,7 @@ static void LogMessage(sp_session* session, const char* data) {
 static void LoggedOut(sp_session* session) {
   g_exit_code = 0;
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
+  ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
   s->Emit(String::New("logged_out"), 0, NULL);
 }
 
@@ -91,8 +118,8 @@ void Session::Initialize(Handle<Object> target) {
 
   Local<ObjectTemplate> instance_t = t->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
-  instance_t->SetAccessor(String::New("user"), User);
-  instance_t->SetAccessor(String::New("connectionState"), ConnectionState);
+  instance_t->SetAccessor(String::New("user"), UserGetter);
+  instance_t->SetAccessor(String::New("connectionState"), ConnectionStateGetter);
   
   target->Set(NODE_PSYMBOL("Session"), t->GetFunction());
 }
@@ -142,6 +169,12 @@ Handle<Value> Session::New(const Arguments& args) {
       config.application_key_size = g_appkey_size;
     }
   }
+  
+  // register in the runloop
+  // todo: g_runloop_timer --> instance member
+  ev_timer_init(&g_runloop_timer, runloop_tick, 0.0, 0.0);
+  ev_timer_start(EV_DEFAULT_UC_ &g_runloop_timer);
+  g_runloop_timer.data = s;
 
   sp_session* session;
   sp_error error = sp_session_init(&config, &session);
@@ -156,10 +189,6 @@ Handle<Value> Session::New(const Arguments& args) {
   signal(SIGIO, &signal_ignore);
   s->Wrap(args.Holder());
   return args.This();
-}
-
-void Session::Login(const char* username, const char* password) {
-  sp_session_login(this->session_, username, password);
 }
 
 Handle<Value> Session::Login(const Arguments& args) {
@@ -188,9 +217,11 @@ Handle<Value> Session::Login(const Arguments& args) {
   };
   addListener->Call(args.This(), 2, argv);
   
-  s->Login(username, password);
-  s->Loop();
-  return scope.Close(Undefined());
+  sp_session_login(s->session_, username, password);
+  
+  //s->Loop();
+
+  return Undefined();
 }
 
 Handle<Value> Session::Logout(const Arguments& args) {
@@ -206,15 +237,11 @@ Handle<Value> Session::Logout(const Arguments& args) {
   Local<Value> argv[] = { String::New("logged_out"), args[0] };
   addListener->Call(args.This(), 2, argv);
 
-  s->Logout();
-  return scope.Close(Undefined());
+  sp_session_logout(s->session_);
+  return Undefined();
 }
 
-void Session::Logout() {
-  sp_session_logout(this->session_);
-}
-
-Handle<Value> Session::ConnectionState(Local<String> property,
+Handle<Value> Session::ConnectionStateGetter(Local<String> property,
                                        const AccessorInfo& info) {
   HandleScope scope;
   Session* s = Unwrap<Session>(info.This());
@@ -222,7 +249,7 @@ Handle<Value> Session::ConnectionState(Local<String> property,
   return scope.Close(Integer::New(connectionstate));
 }
 
-Handle<Value> Session::User(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Session::UserGetter(Local<String> property, const AccessorInfo& info) {
   HandleScope scope;
   Session* s = Unwrap<Session>(info.This());
   sp_user* user = sp_session_user(s->session_);
@@ -231,7 +258,7 @@ Handle<Value> Session::User(Local<String> property, const AccessorInfo& info) {
   // is connected/logged in, in which case the user object isn't initialized
   // and something weird has to be returned
   if (!user) {
-    return scope.Close(Undefined());
+    return Undefined();
   }
 
   return scope.Close(User::NewInstance(user));
