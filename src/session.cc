@@ -14,36 +14,41 @@
 using namespace node;
 using namespace v8;
 
-#define SP_THROW(_type_, _msg_)\
+// -------
+// Helpers
+
+#define NS_THROW(_type_, _msg_)\
   return ThrowException(Exception::_type_(String::New(_msg_)))
+
+static inline char *NSValueToUTF8(Handle<Value> v) {
+  char *p = new char[v->ToString()->Utf8Length()];
+  v->ToString()->WriteUtf8(p);
+  return p;
+}
 
 static ev_timer g_runloop_timer;
 static ev_check g_runloop_check;
 static ev_async g_runloop_async;
 
-static void signal_ignore(int signo) {
-}
-
 static void runloop_tick(EV_P_ ev_timer *w, int revents) {
   Session *s = static_cast<Session*>(w->data);
-  printf("runloop_tick\n");
   s->ProcessEvents();
 }
 
 static void runloop_notify_tick(EV_P_ ev_async *w, int revents) {
   Session *s = static_cast<Session*>(w->data);
-  //printf("runloop_notify_tick\n");
   s->ProcessEvents();
 }
 
 static void notify_main_thread(sp_session* session) {
+  // Called by a background thread (controlled by libspotify) when we need to
+  // query sp_session_process_events, which is handled by
+  // Session::ProcessEvents. ev_async_send queues a call on the main ev runloop.
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  //printf("notify_main_thread\n");
   ev_async_send(EV_DEFAULT_UC_ &g_runloop_async);
 }
 
 void Session::ProcessEvents() {
-  //printf("Session::ProcessEvents\n");
   int timeout = 0;
   // stop timer
   ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
@@ -78,11 +83,12 @@ static void MessageToUser(sp_session* session, const char* data) {
 
 static void LoggedOut(sp_session* session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));  
-  assert(s->logout_callback_ != NULL);
-  assert((*s->logout_callback_)->IsFunction());
-  (*s->logout_callback_)->Call(Context::GetCurrent()->Global(), 0, NULL);
-  cb_destroy(s->logout_callback_);
-  s->logout_callback_ = NULL;
+  if (s->logout_callback_) {
+    assert((*s->logout_callback_)->IsFunction());
+    (*s->logout_callback_)->Call(Context::GetCurrent()->Global(), 0, NULL);
+    cb_destroy(s->logout_callback_);
+    s->logout_callback_ = NULL;
+  }
   ev_unref(EV_DEFAULT_UC);
 }
 
@@ -160,14 +166,14 @@ Handle<Value> Session::New(const Arguments& args) {
 
   if (args.Length() > 0) {
     if (!args[0]->IsObject())
-      SP_THROW(TypeError, "first argument must be an object");
+      NS_THROW(TypeError, "first argument must be an object");
 
     Local<Object> configuration = args[0]->ToObject();
 
     // applicationKey
     if (configuration->Has(String::New("applicationKey"))) {
       Local<Value> v = configuration->Get(String::New("applicationKey"));
-      if (!v->IsArray()) SP_THROW(TypeError, "applicationKey must be an array of integers");
+      if (!v->IsArray()) NS_THROW(TypeError, "applicationKey must be an array of integers");
       Local<Array> a = Local<Array>::Cast(v);
       uint8_t *keybuf = new uint8_t[a->Length()];
       config.application_key_size = a->Length();
@@ -181,9 +187,8 @@ Handle<Value> Session::New(const Arguments& args) {
     // userAgent
     if (configuration->Has(String::New("userAgent"))) {
       Handle<Value> v = configuration->Get(String::New("userAgent"));
-      if (!v->IsString()) SP_THROW(TypeError, "userAgent must be a string");
-      config.user_agent = new char[v->ToString()->Utf8Length()];
-      v->ToString()->WriteUtf8((char *)config.user_agent);
+      if (!v->IsString()) NS_THROW(TypeError, "userAgent must be a string");
+      config.user_agent = NSValueToUTF8(v); // todo: free this at dealloc
     }
   }
   
@@ -203,11 +208,10 @@ Handle<Value> Session::New(const Arguments& args) {
   sp_error error = sp_session_init(&config, &session);
 
   if (error != SP_ERROR_OK)
-    SP_THROW(Error, sp_error_message(error));
+    NS_THROW(Error, sp_error_message(error));
 
   s->session_ = session;
   s->thread_id_ = pthread_self();
-  signal(SIGIO, &signal_ignore);
   s->Wrap(args.Holder());
   return args.This();
 }
@@ -215,44 +219,44 @@ Handle<Value> Session::New(const Arguments& args) {
 Handle<Value> Session::Login(const Arguments& args) {
   HandleScope scope;
   
-  if (args.Length() != 3) SP_THROW(TypeError, "login takes exactly 3 arguments");
-  if (!args[0]->IsString()) SP_THROW(TypeError, "first argument must be a string");
-  if (!args[1]->IsString()) SP_THROW(TypeError, "second argument must be a string");
-  if (!args[2]->IsFunction()) SP_THROW(TypeError, "last argument must be a function");
+  if (args.Length() != 3) NS_THROW(TypeError, "login takes exactly 3 arguments");
+  if (!args[0]->IsString()) NS_THROW(TypeError, "first argument must be a string");
+  if (!args[1]->IsString()) NS_THROW(TypeError, "second argument must be a string");
+  if (!args[2]->IsFunction()) NS_THROW(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
 
-  // *(String::Utf8Value(args[0]->ToString()) didn't work out the way I thought
-  // it would, so...
-  char* username = new char[args[0]->ToString()->Utf8Length()];
-  args[0]->ToString()->WriteUtf8(username);
+  #define SP_UTF8STR()
 
-  char* password = new char[args[1]->ToString()->Utf8Length()];
-  args[1]->ToString()->WriteUtf8(password);
+  char* username = NSValueToUTF8(args[0]);
+  char* password = NSValueToUTF8(args[1]);
+
+  // increase refcount for our timer event
+  ev_ref(EV_DEFAULT_UC);
 
   // save login callback
   if (s->login_callback_) cb_destroy(s->login_callback_);
   s->login_callback_ = cb_persist(args[2]);
   
-  ev_ref(EV_DEFAULT_UC);
   sp_session_login(s->session_, username, password);
   
-  //s->Loop();
-
+  delete username, password;
   return Undefined();
 }
 
 Handle<Value> Session::Logout(const Arguments& args) {
   HandleScope scope;
   
-  if (args.Length() != 1) SP_THROW(TypeError, "login takes exactly one arguments");
-  if (!args[0]->IsFunction()) SP_THROW(TypeError, "last argument must be a function");
+  if (args.Length() > 0 && !args[0]->IsFunction())
+    NS_THROW(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
   
   // save logout callback
-  if (s->logout_callback_) cb_destroy(s->login_callback_);
-  s->logout_callback_ = cb_persist(args[0]);
+  if (args.Length() > 0) {
+    if (s->logout_callback_) cb_destroy(s->login_callback_);
+    s->logout_callback_ = cb_persist(args[0]);
+  }
   
   sp_session_logout(s->session_);
   return Undefined();
