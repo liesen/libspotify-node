@@ -19,25 +19,15 @@ session.addListener('connection_error', function (message) {
   sys.puts('connection_error: ' + message);
 });
 
-session.addListener('logged_in', function (err) {
-  sys.puts('!!! logged_in'); 
-  sys.puts('status: ' + err);
-
-  if (err != spotify.Error.OK) {
-    sys.puts('aaaaaaaaaaaaah');
-    return;
-  }
-
-  sys.puts('user display name: ' + session.user.displayName);
-  session.logout();
-});
-
-session.addListener('logged_out', function () {
-  sys.puts('!!! logged_out');
-});
-
 session.addListener('message_to_user', function (message) { 
   sys.puts('message_to_user: ' + message);
 });
 
-session.login('username', 'password');
+session.login('username', 'password', function (err) {
+  sys.puts('!!! logged_in'); 
+  if (err) return sys.error(err.stack || err);
+  sys.puts('logged in as: ' + session.user.displayName+' -- logging out...');
+  session.logout(function(){
+    sys.puts('!!! logged_out');
+  });
+});
