@@ -32,11 +32,10 @@ class Session : public node::EventEmitter {
                                     const v8::AccessorInfo& info);
 
   void EmitLogMessage(const char* message);
+  void ProcessEvents();
 
-  void Loop();
-
-  Session(sp_session* session) : session_(session), thread_id_((pthread_t) -1) {
-  }
+  Session(sp_session* session) : session_(session), thread_id_((pthread_t) -1) {}
+  ~Session();
 
   sp_session* session_;
   pthread_t thread_id_;
