@@ -2,6 +2,7 @@ srcdir = "."
 blddir = 'build'
 VERSION = '0.0.1'
 
+import os
 import platform
 PLATFORM_IS_DARWIN = platform.platform().find('Darwin') == 0
 
@@ -23,13 +24,19 @@ def configure(conf):
   conf.check_tool('node_addon')
   if PLATFORM_IS_DARWIN:
     conf.env.append_value('LINKFLAGS', ['-framework', 'libspotify', '-dynamiclib'])
+  conf.env.append_value('LINKFLAGS', [os.getcwdu()+'/src/atomic_queue.o'])
 
 def build(bld):
   obj = bld.new_task_gen('cxx', 'shlib', 'node_addon')
   obj.target = 'binding'
   obj.source = bld.path.ant_glob('src/*.cc')
+  #obj.source += ' '+bld.path.ant_glob('src/*.s')
   if not PLATFORM_IS_DARWIN:
     obj.lib = 'libspotify'
+  # TODO: fix this ugly hack:
+  from subprocess import Popen, PIPE
+  Popen(['cc','-c','-o','src/atomic_queue.o','src/atomic_queue.s'],
+    stderr=PIPE).communicate()[1]
 
 import Options
 from os.path import exists
@@ -40,6 +47,7 @@ def shutdown():
   # HACK to get binding.node out of build directory
   if Options.commands['clean']:
     if exists('spotify/binding.node'): unlink('spotify/binding.node')
+    if exists('src/atomic_queue.o'): unlink('src/atomic_queue.o')
   else:
     if exists('build/default/binding.node'):
       copy('build/default/binding.node', 'spotify/binding.node')

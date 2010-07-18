@@ -14,6 +14,13 @@
 using namespace node;
 using namespace v8;
 
+typedef struct log_message {
+  struct log_message *next;
+  const char *message;
+} log_message_t;
+
+static Persistent<String> logMessage_symbol;
+
 // -------
 // Helpers
 
@@ -26,12 +33,12 @@ static inline char *NSValueToUTF8(Handle<Value> v) {
   return p;
 }
 
-static void runloop_tick(EV_P_ ev_timer *w, int revents) {
+static void SpotifyRunloopTimerProcess(EV_P_ ev_timer *w, int revents) {
   Session *s = static_cast<Session*>(w->data);
   s->ProcessEvents();
 }
 
-static void runloop_notify_tick(EV_P_ ev_async *w, int revents) {
+static void SpotifyRunloopAsyncProcess(EV_P_ ev_async *w, int revents) {
   Session *s = static_cast<Session*>(w->data);
   s->ProcessEvents();
 }
@@ -40,7 +47,7 @@ static void notify_main_thread(sp_session* session) {
   // Called by a background thread (controlled by libspotify) when we need to
   // query sp_session_process_events, which is handled by
   // Session::ProcessEvents. ev_async_send queues a call on the main ev runloop.
-  Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
+  Session* s = static_cast<Session*>(sp_session_userdata(session));
   ev_async_send(EV_DEFAULT_UC_ &s->runloop_async_);
 }
 
@@ -48,26 +55,41 @@ void Session::ProcessEvents() {
   int timeout = 0;
   // stop timer
   ev_timer_stop(EV_DEFAULT_UC_ &this->runloop_timer_);
-  
+
   if (this->session_)
     sp_session_process_events(this->session_, &timeout);
-  //printf("next runloop_tick in %d ms\n", timeout);
-  
+
   // schedule next tick
   ev_timer_set(&this->runloop_timer_, ((float)timeout)/1000.0, 0.0);
   ev_timer_start(EV_DEFAULT_UC_ &this->runloop_timer_);
 }
 
-void Session::EmitLogMessage(const char* message) {
-  HandleScope scope;
-  Handle<Value> argv[1];
-  argv[0] = Handle<Value>(String::New(message));
-  Emit(String::New("log_message"), 1, argv);
+void Session::DequeueLogMessages() {
+  log_message_t *msg;
+  while ((msg = (log_message_t *)nt_atomic_dequeue(&this->log_messages_q_,
+    offsetof(log_message_t, next))))
+  {
+    Local<Value> argv[] = { String::New(msg->message) };
+    this->Emit(logMessage_symbol, 1, argv);
+    delete msg->message;
+    delete msg;
+  }
+}
+
+static void SpotifyRunloopAsyncLogMessage(EV_P_ ev_async *w, int revents) {
+  Session *s = static_cast<Session*>(((void **)w->data)[0]);
+  s->DequeueLogMessages();
 }
 
 static void LogMessage(sp_session* session, const char* data) {
-  printf("log_message: %s", data);
-  fflush(stdout);
+  Session* s = static_cast<Session*>(sp_session_userdata(session));
+  //printf("logMessage: %s", data); fflush(stdout);
+  // Enqueue log message
+  log_message_t *msg = new log_message_t;
+  msg->message = (const char *)strdup(data);
+  nt_atomic_enqueue(&s->log_messages_q_, msg, offsetof(log_message_t, next));
+  // Signal we need to dequeue the message queue: SpotifyRunloopAsyncLogMessage
+  ev_async_send(EV_DEFAULT_UC_ &s->logmsg_async_);
 }
 
 static void MessageToUser(sp_session* session, const char* data) {
@@ -78,7 +100,7 @@ static void MessageToUser(sp_session* session, const char* data) {
 }
 
 static void LoggedOut(sp_session* session) {
-  Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));  
+  Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
   if (s->logout_callback_) {
     assert((*s->logout_callback_)->IsFunction());
     (*s->logout_callback_)->Call(Context::GetCurrent()->Global(), 0, NULL);
@@ -86,6 +108,7 @@ static void LoggedOut(sp_session* session) {
     s->logout_callback_ = NULL;
   }
   ev_unref(EV_DEFAULT_UC);
+  s->DequeueLogMessages();
 }
 
 static void LoggedIn(sp_session* session, sp_error error) {
@@ -113,7 +136,7 @@ void Session::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
   t->Inherit(EventEmitter::constructor_template);
-  
+
   NODE_SET_PROTOTYPE_METHOD(t, "logout", Logout);
   NODE_SET_PROTOTYPE_METHOD(t, "login", Login);
 
@@ -123,19 +146,31 @@ void Session::Initialize(Handle<Object> target) {
   instance_t->SetAccessor(String::New("connectionState"),
                           ConnectionStateGetter);
   instance_t->SetAccessor(String::New("playlists"), PlaylistContainerGetter);
-  
-  target->Set(NODE_PSYMBOL("Session"), t->GetFunction());
+
+  target->Set(String::New("Session"), t->GetFunction());
+
+  logMessage_symbol = NODE_PSYMBOL("logMessage");
 }
 
 Session::~Session() {
   ev_timer_stop(EV_DEFAULT_UC_ &this->runloop_timer_);
   ev_async_stop(EV_DEFAULT_UC_ &this->runloop_async_);
-  printf("session destroyed\n");
+  free(this->logmsg_async_.data);
+  this->DequeueLogMessages();
+}
+
+Session::Session(sp_session* session)
+  : session_(session)
+  , thread_id_((pthread_t) -1)
+  , login_callback_(NULL)
+  , logout_callback_(NULL)
+{
+  memset((void*)&this->log_messages_q_, 0, sizeof(nt_atomic_queue));
 }
 
 Handle<Value> Session::New(const Arguments& args) {
   Session* s = new Session(NULL);
-  
+
   static sp_session_callbacks callbacks = {
     /* logged_in */             LoggedIn,
     /* logged_out */            LoggedOut,
@@ -179,7 +214,7 @@ Handle<Value> Session::New(const Arguments& args) {
       config.application_key = keybuf;
       // todo: save ref to keybuf so we can free it at dealloc
     }
-    
+
     // userAgent
     if (configuration->Has(String::New("userAgent"))) {
       Handle<Value> v = configuration->Get(String::New("userAgent"));
@@ -187,17 +222,29 @@ Handle<Value> Session::New(const Arguments& args) {
       config.user_agent = NSValueToUTF8(v); // todo: free this at dealloc
     }
   }
-  
-  // register in the runloop
+
+  // ev_async for libspotify background thread to invoke processing on main
   s->runloop_async_.data = s;
-  ev_async_init(&s->runloop_async_, runloop_notify_tick);
+  ev_async_init(&s->runloop_async_, SpotifyRunloopAsyncProcess);
   ev_async_start(EV_DEFAULT_UC_ &s->runloop_async_);
-  ev_unref(EV_DEFAULT_UC);
+  ev_unref(EV_DEFAULT_UC); // don't let a lingering async ev keep the main loop
+
+  // ev_timer for triggering libspotify periodic processing
   s->runloop_timer_.data = s;
-  ev_timer_init(&s->runloop_timer_, runloop_tick, 60.0, 0.0);
+  ev_timer_init(&s->runloop_timer_, SpotifyRunloopTimerProcess, 60.0, 0.0);
   ev_unref(EV_DEFAULT_UC);
   // Note: No need to start the timer as it's started by first invocation after
   // notify_main_thread
+
+  // ev_async for libspotify background thread to emit log message on main
+  // Oh my this is kind of an ugly hack:
+  void **d = (void **)calloc(2, sizeof(void*));
+  d[0] = s;
+  d[1] = NULL; // log message
+  s->logmsg_async_.data = (void *)d;
+  ev_async_init(&s->logmsg_async_, SpotifyRunloopAsyncLogMessage);
+  ev_async_start(EV_DEFAULT_UC_ &s->logmsg_async_);
+  ev_unref(EV_DEFAULT_UC); // don't let a lingering async ev keep the main loop
 
   sp_session* session;
   sp_error error = sp_session_init(&config, &session);
@@ -213,7 +260,7 @@ Handle<Value> Session::New(const Arguments& args) {
 
 Handle<Value> Session::Login(const Arguments& args) {
   HandleScope scope;
-  
+
   if (args.Length() != 3) NS_THROW(TypeError, "login takes exactly 3 arguments");
   if (!args[0]->IsString()) NS_THROW(TypeError, "first argument must be a string");
   if (!args[1]->IsString()) NS_THROW(TypeError, "second argument must be a string");
@@ -232,27 +279,27 @@ Handle<Value> Session::Login(const Arguments& args) {
   // save login callback
   if (s->login_callback_) cb_destroy(s->login_callback_);
   s->login_callback_ = cb_persist(args[2]);
-  
+
   sp_session_login(s->session_, username, password);
-  
+
   delete username, password;
   return Undefined();
 }
 
 Handle<Value> Session::Logout(const Arguments& args) {
   HandleScope scope;
-  
+
   if (args.Length() > 0 && !args[0]->IsFunction())
     NS_THROW(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
-  
+
   // save logout callback
   if (args.Length() > 0) {
     if (s->logout_callback_) cb_destroy(s->login_callback_);
     s->logout_callback_ = cb_persist(args[0]);
   }
-  
+
   sp_session_logout(s->session_);
   return Undefined();
 }

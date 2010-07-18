@@ -12,8 +12,8 @@ var config = {
 var session = new spotify.Session(config);
 sys.puts(sys.inspect(session));
 
-session.addListener('log_message', function (message) {
-  sys.puts('log_message: ' + message);
+session.addListener('logMessage', function (message) {
+  sys.puts('logMessage: ' + message.substr(0,message.length-1));
 });
 
 session.addListener('connection_error', function (message) {
