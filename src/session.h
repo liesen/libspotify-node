@@ -43,6 +43,10 @@ class Session : public node::EventEmitter {
   pthread_t thread_id_;
   v8::Persistent<v8::Function> *logout_callback_;
   v8::Persistent<v8::Function> *login_callback_;
+
+  // Node-Spotify runloop glue
+  ev_timer runloop_timer_;
+  ev_async runloop_async_;
 };
 
 #endif  // SPOTIFY_SESSION_H_

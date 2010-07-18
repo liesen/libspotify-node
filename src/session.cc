@@ -26,10 +26,6 @@ static inline char *NSValueToUTF8(Handle<Value> v) {
   return p;
 }
 
-static ev_timer g_runloop_timer;
-static ev_check g_runloop_check;
-static ev_async g_runloop_async;
-
 static void runloop_tick(EV_P_ ev_timer *w, int revents) {
   Session *s = static_cast<Session*>(w->data);
   s->ProcessEvents();
@@ -45,21 +41,21 @@ static void notify_main_thread(sp_session* session) {
   // query sp_session_process_events, which is handled by
   // Session::ProcessEvents. ev_async_send queues a call on the main ev runloop.
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  ev_async_send(EV_DEFAULT_UC_ &g_runloop_async);
+  ev_async_send(EV_DEFAULT_UC_ &s->runloop_async_);
 }
 
 void Session::ProcessEvents() {
   int timeout = 0;
   // stop timer
-  ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
+  ev_timer_stop(EV_DEFAULT_UC_ &this->runloop_timer_);
   
   if (this->session_)
     sp_session_process_events(this->session_, &timeout);
   //printf("next runloop_tick in %d ms\n", timeout);
   
   // schedule next tick
-  ev_timer_set(&g_runloop_timer, ((float)timeout)/1000.0, 0.0);
-  ev_timer_start(EV_DEFAULT_UC_ &g_runloop_timer);
+  ev_timer_set(&this->runloop_timer_, ((float)timeout)/1000.0, 0.0);
+  ev_timer_start(EV_DEFAULT_UC_ &this->runloop_timer_);
 }
 
 void Session::EmitLogMessage(const char* message) {
@@ -132,8 +128,8 @@ void Session::Initialize(Handle<Object> target) {
 }
 
 Session::~Session() {
-  ev_timer_stop(EV_DEFAULT_UC_ &g_runloop_timer);
-  ev_async_stop(EV_DEFAULT_UC_ &g_runloop_async);
+  ev_timer_stop(EV_DEFAULT_UC_ &this->runloop_timer_);
+  ev_async_stop(EV_DEFAULT_UC_ &this->runloop_async_);
   printf("session destroyed\n");
 }
 
@@ -193,13 +189,12 @@ Handle<Value> Session::New(const Arguments& args) {
   }
   
   // register in the runloop
-  g_runloop_async.data = s;
-  ev_async_init(&g_runloop_async, runloop_notify_tick);
-  ev_async_start(EV_DEFAULT_UC_ &g_runloop_async);
+  s->runloop_async_.data = s;
+  ev_async_init(&s->runloop_async_, runloop_notify_tick);
+  ev_async_start(EV_DEFAULT_UC_ &s->runloop_async_);
   ev_unref(EV_DEFAULT_UC);
-  // todo: g_runloop_timer --> instance member
-  g_runloop_timer.data = s;
-  ev_timer_init(&g_runloop_timer, runloop_tick, 60.0, 0.0);
+  s->runloop_timer_.data = s;
+  ev_timer_init(&s->runloop_timer_, runloop_tick, 60.0, 0.0);
   ev_unref(EV_DEFAULT_UC);
   // Note: No need to start the timer as it's started by first invocation after
   // notify_main_thread
