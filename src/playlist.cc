@@ -130,7 +130,16 @@ Handle<Value> Playlist::New(const Arguments& args) {
 Handle<Value> Playlist::LoadedGetter(Local<String> property, const AccessorInfo& info) {
   HandleScope scope;
   sp_playlist* playlist = ObjectWrap::Unwrap<Playlist>(info.This())->playlist_;
+  if (!playlist) return Undefined();
   return scope.Close(Boolean::New(sp_playlist_is_loaded(playlist)));
+}
+
+Handle<Value> Playlist::NameGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  sp_playlist* playlist = ObjectWrap::Unwrap<Playlist>(info.This())->playlist_;
+  if (!playlist || !sp_playlist_is_loaded(playlist))
+    return Undefined();
+  return scope.Close(String::New(sp_playlist_name(playlist)));
 }
 
 Handle<Value> Playlist::URIGetter(Local<String> property, const AccessorInfo& info) {
@@ -157,6 +166,7 @@ void Playlist::Initialize(Handle<Object> target) {
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::NewSymbol("loaded"), LoadedGetter);
+  instance_t->SetAccessor(String::NewSymbol("name"), NameGetter);
   instance_t->SetAccessor(String::NewSymbol("uri"), URIGetter);
   /*instance_t->SetAccessor(NODE_PSYMBOL("length"), LengthGetter);
   instance_t->SetIndexedPropertyHandler(TrackGetter,
