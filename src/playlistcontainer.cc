@@ -57,10 +57,7 @@ static sp_playlistcontainer_callbacks callbacks = {
 };
 
 PlaylistContainer::PlaylistContainer(sp_playlistcontainer* playlist_container)
-  : node::EventEmitter()
-  , playlist_container_(playlist_container)
-{
-  this->playlist_container_ = playlist_container_;
+  : EventEmitter(), playlist_container_(playlist_container) {
   if (this->playlist_container_)
     sp_playlistcontainer_add_callbacks(this->playlist_container_, &callbacks, this);
 }
@@ -75,9 +72,9 @@ PlaylistContainer *PlaylistContainer::New(sp_playlistcontainer *playlist_contain
 
 Handle<Value> PlaylistContainer::New(const Arguments& args) {
   PlaylistContainer* pc = new PlaylistContainer(
-    (args.Length() && args[0]->IsExternal())
+    args.Length() > 0 && args[0]->IsExternal()
       ? (sp_playlistcontainer *)External::Unwrap(args[0])
-      : NULL );
+      : NULL);
   pc->Wrap(args.This());
   return args.This();
 }
@@ -85,19 +82,21 @@ Handle<Value> PlaylistContainer::New(const Arguments& args) {
 Handle<Value> PlaylistContainer::LengthGetter(Local<String> property,
                                               const AccessorInfo& info) {
   HandleScope scope;
-  sp_playlistcontainer* pc = Unwrap<PlaylistContainer>(info.This())->playlist_container_;
-  int num_playlists = sp_playlistcontainer_num_playlists(pc);
+  PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
+  int num_playlists = pc->num_playlists();
   return scope.Close(Integer::New(num_playlists));
 }
 
 Handle<Value> PlaylistContainer::PlaylistGetter(uint32_t index, const AccessorInfo& info) {
   HandleScope scope;
-  sp_playlistcontainer* pc = Unwrap<PlaylistContainer>(info.This())->playlist_container_;
-  sp_playlist* playlist = sp_playlistcontainer_playlist(pc, index);
-  if (!playlist)
-    return Undefined();
-  const char* playlist_name = sp_playlist_name(playlist);
-  return scope.Close(String::New(playlist_name));
+  PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
+  sp_playlist* playlist = sp_playlistcontainer_playlist(
+      pc->playlist_container_, index);
+
+  if (playlist == NULL)
+    return scope.Close(Undefined());
+
+  return scope.Close(Playlist::New(playlist));
 }
 
 Handle<Value> PlaylistContainer::PlaylistSetter(uint32_t index,
@@ -115,17 +114,24 @@ Handle<Boolean> PlaylistContainer::PlaylistDeleter(uint32_t index,
 Handle<Boolean> PlaylistContainer::PlaylistQuery(uint32_t index,
                                                  const AccessorInfo& info) {
   HandleScope scope;
-  sp_playlistcontainer* pc = Unwrap<PlaylistContainer>(info.This())->playlist_container_;
-  int num_playlists = sp_playlistcontainer_num_playlists(pc);
+  PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
+  int num_playlists = pc->num_playlists(); 
   return scope.Close(Boolean::New(index < num_playlists));
 }
 
 Handle<Array> PlaylistContainer::PlaylistEnumerator(const AccessorInfo& info) {
   HandleScope scope;
-  sp_playlistcontainer* pc = Unwrap<PlaylistContainer>(info.This())->playlist_container_;
-  int num_playlists = sp_playlistcontainer_num_playlists(pc);
-  fprintf(stderr, "sp: playlist enumerator, %d playlists\n", num_playlists);
-  return scope.Close(Array::New(num_playlists));
+  PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
+  int num_playlists = pc->num_playlists(); 
+  Local<Array> playlists = Array::New(num_playlists);
+
+  for (int i = 0; i < num_playlists; i++) {
+    sp_playlist* playlist = sp_playlistcontainer_playlist(
+        pc->playlist_container_, i);
+    playlists->Set(i, Playlist::New(playlist));
+  }
+
+  return scope.Close(playlists);
 }
 
 void PlaylistContainer::Initialize(Handle<Object> target) {
@@ -145,4 +151,8 @@ void PlaylistContainer::Initialize(Handle<Object> target) {
                                         PlaylistEnumerator);
 
   target->Set(String::New("PlaylistContainer"), constructor_template->GetFunction());
+}
+
+int PlaylistContainer::num_playlists() {
+  return sp_playlistcontainer_num_playlists(playlist_container_);
 }

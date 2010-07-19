@@ -32,6 +32,8 @@ class PlaylistContainer : public node::EventEmitter {
   static v8::Handle<v8::Value> StartLoading(const v8::Arguments& args);
   
   sp_playlistcontainer* playlist_container_;
+
+  int num_playlists();
   
   static v8::Persistent<v8::FunctionTemplate> constructor_template;
 };
