@@ -4,6 +4,7 @@
 #include "search.h"
 #include "track.h"
 #include "album.h"
+#include "artist.h"
 
 #include <node.h>
 #include <libspotify/api.h>
@@ -19,5 +20,6 @@ extern "C" void init(Handle<Object> target) {
   SearchResult::Initialize(target);
   Track::Initialize(target);
   Album::Initialize(target);
+  Artist::Initialize(target);
   target->Set(String::NewSymbol("version"), Integer::New(SPOTIFY_API_VERSION));
 }

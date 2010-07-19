@@ -83,9 +83,10 @@ Handle<Value> Album::LoadedGetter(Local<String> property, const AccessorInfo& in
 Handle<Value> Album::ArtistGetter(Local<String> property, const AccessorInfo& info) {
   HandleScope scope;
   Album *p = Unwrap<Album>(info.This());
-  //if (!p->album_ || !sp_album_is_loaded(p->album_))
+  if (!p->album_ || !sp_album_is_loaded(p->album_))
     return Undefined();
-  // ...
+  Local<Value> artist = Artist::New(sp_album_artist(p->album_));
+  scope.Close(artist);
 }
 
 void Album::Initialize(Handle<Object> target) {
