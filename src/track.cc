@@ -1,4 +1,5 @@
 #include "track.h"
+#include "album.h"
 
 using namespace v8;
 using namespace node;
@@ -14,6 +15,7 @@ Persistent<FunctionTemplate> Track::constructor_template;
 Track::Track(sp_track *track)
   : node::EventEmitter()
   , track_(track)
+  , album_(NULL)
 {
 }
 
@@ -71,9 +73,8 @@ bool Track::SetupBackingTrack() {
   d = sp_track_disc(track_);
   if (d) handle_->Set(String::New("disc"), Integer::New(d));
 
-  // todo: lazy getters for artists and album
+  // todo: lazy getter for artists
   // [sp_track_num_artists & sp_track_artist ...]
-  // sp_track_album
 
   return true;
 }
@@ -86,6 +87,18 @@ Handle<Value> Track::LoadedGetter(Local<String> property, const AccessorInfo& in
     : Undefined();
 }
 
+Handle<Value> Track::AlbumGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  Track *p = Unwrap<Track>(info.This());
+  if (!p->track_ || !sp_track_is_loaded(p->track_))
+    return Undefined();
+  if (!p->album_) {
+    Local<Object> instance = Album::New(sp_track_album(p->track_));
+    p->album_ = ObjectWrap::Unwrap<Album>(instance);
+  }
+  return scope.Close(p->album_->handle_);
+}
+
 void Track::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
@@ -96,7 +109,7 @@ void Track::Initialize(Handle<Object> target) {
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::New("loaded"), LoadedGetter);
-  //instance_t->SetAccessor(String::New("album"), AlbumGetter);
+  instance_t->SetAccessor(String::New("album"), AlbumGetter);
 
   target->Set(String::New("Track"), constructor_template->GetFunction());
 }

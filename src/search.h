@@ -13,7 +13,7 @@ public:
   static void Initialize(v8::Handle<v8::Object> target);
   SearchResult(sp_search* search);
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
-  static v8::Handle<v8::Value> New(sp_search *search);
+  static v8::Local<v8::Object> New(sp_search *search);
 
   static v8::Handle<v8::Value> TracksGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
 

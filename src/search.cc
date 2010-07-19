@@ -15,7 +15,7 @@ SearchResult::SearchResult(sp_search *search)
 {
 }
 
-Handle<Value> SearchResult::New(sp_search *search) {
+Local<Object> SearchResult::New(sp_search *search) {
   Local<Object> instance = constructor_template->GetFunction()->NewInstance(0, NULL);
   SearchResult *sr = ObjectWrap::Unwrap<SearchResult>(instance);
   sr->search_ = search;
