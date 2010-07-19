@@ -15,15 +15,19 @@ class Playlist : public node::EventEmitter {
   static void Initialize(v8::Handle<v8::Object> target);
   
   Playlist(sp_playlist* playlist);
+  ~Playlist();
   
   static Handle<Value> New(const Arguments& args);
   static Handle<Value> New(sp_playlist *playlist);
 
-  static Handle<Value> LoadedGetter(Local<String> property, const AccessorInfo& info);
-  static Handle<Value> NameGetter(Local<String> property, const AccessorInfo& info);
-  static Handle<Value> URIGetter(Local<String> property, const AccessorInfo& info);
+  static Handle<Value> LoadedGetter(Local<String> property,
+                                    const AccessorInfo& info);
+  static Handle<Value> NameGetter(Local<String> property,
+                                  const AccessorInfo& info);
+  static Handle<Value> URIGetter(Local<String> property,
+                                 const AccessorInfo& info);
 
- private:
+ protected:
   sp_playlist* playlist_;
   static v8::Persistent<v8::FunctionTemplate> constructor_template;
 };

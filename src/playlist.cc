@@ -109,16 +109,25 @@ Playlist::Playlist(sp_playlist* playlist)
   : node::EventEmitter()
   , playlist_(playlist)
 {
-  if (playlist_)
+  if (playlist_) {
+    sp_playlist_add_ref(playlist_);
     sp_playlist_add_callbacks(playlist_, &callbacks, this);
+  }
+}
+
+Playlist::~Playlist() {
+  if (playlist_) sp_playlist_release(playlist_);
 }
 
 Handle<Value> Playlist::New(sp_playlist *playlist) {
   Local<Object> instance = constructor_template->GetFunction()->NewInstance(0, NULL);
   Playlist *pl = ObjectWrap::Unwrap<Playlist>(instance);
+  if (pl->playlist_) sp_playlist_release(pl->playlist_);
   pl->playlist_ = playlist;
-  if (pl->playlist_)
+  if (pl->playlist_) {
+    sp_playlist_add_ref(pl->playlist_);
     sp_playlist_add_callbacks(pl->playlist_, &callbacks, pl);
+  }
   return instance;
 }
 
