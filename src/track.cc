@@ -49,7 +49,7 @@ Handle<Value> Track::New(const Arguments& args) {
 
 bool Track::SetupBackingTrack() {
   if (!track_) return true;
-  
+
   // status check
   switch (sp_track_error(track_)) {
    case SP_ERROR_OK:

@@ -367,6 +367,7 @@ Handle<Value> Session::Logout(const Arguments& args) {
 }
 
 Handle<Value> Session::Search(const Arguments& args) {
+  HandleScope scope;
   if (args.Length() != 2) THROW_EXCEPTION(TypeError, "search takes exactly 2 arguments");
   if (!args[0]->IsString() && !args[0]->IsObject())
     THROW_EXCEPTION(TypeError, "first argument must be a string or an object");
