@@ -15,8 +15,11 @@ public:
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
   static v8::Local<v8::Object> New(sp_search *search);
 
+  static v8::Handle<v8::Value> LoadedGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> TracksGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
-
+  static v8::Handle<v8::Value> TotalTracksGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> QueryGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> DidYouMeanGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
 protected:
   sp_search* search_;
 };

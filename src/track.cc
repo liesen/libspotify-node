@@ -1,5 +1,6 @@
 #include "track.h"
 #include "album.h"
+#include "artist.h"
 
 using namespace v8;
 using namespace node;
@@ -22,6 +23,8 @@ Track::Track(sp_track *track)
 Track::~Track() {
   if (track_)
     sp_track_release(track_);
+  if (album_)
+    delete album_;
 }
 
 Handle<Value> Track::New(sp_track *track) {
@@ -73,9 +76,6 @@ bool Track::SetupBackingTrack() {
   d = sp_track_disc(track_);
   if (d) handle_->Set(String::New("disc"), Integer::New(d));
 
-  // todo: lazy getter for artists
-  // [sp_track_num_artists & sp_track_artist ...]
-
   return true;
 }
 
@@ -99,6 +99,21 @@ Handle<Value> Track::AlbumGetter(Local<String> property, const AccessorInfo& inf
   return scope.Close(p->album_->handle_);
 }
 
+Handle<Value> Track::ArtistsGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  Track *p = Unwrap<Track>(info.This());
+  if (!p->track_ || !sp_track_is_loaded(p->track_))
+    return Undefined();
+
+  int count = sp_track_num_artists(p->track_);
+  Local<Array> array = Array::New(count);
+  for (int i = 0; i < count; i++) {
+    array->Set(Integer::New(i), Artist::New(sp_track_artist(p->track_, i)));
+  }
+
+  scope.Close(array);
+}
+
 void Track::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
@@ -110,6 +125,7 @@ void Track::Initialize(Handle<Object> target) {
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::New("loaded"), LoadedGetter);
   instance_t->SetAccessor(String::New("album"), AlbumGetter);
+  instance_t->SetAccessor(String::New("artists"), ArtistsGetter);
 
   target->Set(String::New("Track"), constructor_template->GetFunction());
 }

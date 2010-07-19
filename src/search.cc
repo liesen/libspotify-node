@@ -42,6 +42,37 @@ Handle<Value> SearchResult::TracksGetter(Local<String> property, const AccessorI
   return scope.Close(array);
 }
 
+Handle<Value> SearchResult::LoadedGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  SearchResult *p = Unwrap<SearchResult>(info.This());
+  return p->search_
+    ? scope.Close(Boolean::New(sp_search_is_loaded(p->search_)))
+    : Undefined();
+}
+
+Handle<Value> SearchResult::QueryGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  SearchResult *p = Unwrap<SearchResult>(info.This());
+  return p->search_
+    ? scope.Close(String::New(sp_search_query(p->search_)))
+    : Undefined();
+}
+
+Handle<Value> SearchResult::DidYouMeanGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  SearchResult *p = Unwrap<SearchResult>(info.This());
+  return p->search_
+    ? scope.Close(String::New(sp_search_did_you_mean(p->search_)))
+    : Undefined();
+}
+
+Handle<Value> SearchResult::TotalTracksGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  SearchResult *p = Unwrap<SearchResult>(info.This());
+  return p->search_
+    ? scope.Close(Integer::New(sp_search_total_tracks(p->search_)))
+    : Undefined();
+}
 
 void SearchResult::Initialize(Handle<Object> target) {
   HandleScope scope;
@@ -52,14 +83,11 @@ void SearchResult::Initialize(Handle<Object> target) {
   
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
-  instance_t->SetAccessor(NODE_PSYMBOL("tracks"), TracksGetter);
-  //instance_t->SetAccessor(String::NewSymbol("isLoaded"), IsLoaded);
-  /*instance_t->SetAccessor(NODE_PSYMBOL("length"), LengthGetter);
-  instance_t->SetIndexedPropertyHandler(TrackGetter,
-                                        TrackSetter,
-                                        TrackQuery,
-                                        TrackDeleter,
-                                        TrackEnumerator);*/
+  instance_t->SetAccessor(String::NewSymbol("loaded"), LoadedGetter);
+  instance_t->SetAccessor(String::NewSymbol("tracks"), TracksGetter);
+  instance_t->SetAccessor(String::NewSymbol("totalTracks"), TotalTracksGetter);
+  instance_t->SetAccessor(String::NewSymbol("query"), QueryGetter);
+  instance_t->SetAccessor(String::NewSymbol("didYouMean"), DidYouMeanGetter);
 
   target->Set(String::New("SearchResult"), constructor_template->GetFunction());
 }
