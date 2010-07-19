@@ -39,15 +39,32 @@ static void PlaylistAdded(sp_playlistcontainer *pc,
 
 static void PlaylistRemoved(sp_playlistcontainer *pc,
                             sp_playlist *playlist,
-                            int position,
+                            int old_position,
                             void *userdata)
 {
   // this is called on the main thread
-  // todo: keep refs to playlist objects? ...or maybe only emit if there are
-  // listeners? Creating all these playlists is probably hard work.
   PlaylistContainer* p = static_cast<PlaylistContainer*>(userdata);
-  Handle<Value> argv[] = { Playlist::New(playlist), Integer::New(position) };
+  Handle<Value> argv[] = {
+    Playlist::New(playlist),
+    Integer::New(old_position)
+  };
   p->Emit(String::New("playlistRemoved"), 2, argv);
+}
+
+static void PlaylistMoved(sp_playlistcontainer *pc,
+                            sp_playlist *playlist,
+                            int old_position,
+                            int new_position,
+                            void *userdata)
+{
+  // this is called on the main thread
+  PlaylistContainer* p = static_cast<PlaylistContainer*>(userdata);
+  Handle<Value> argv[] = {
+    Playlist::New(playlist),
+    Integer::New(old_position),
+    Integer::New(new_position)
+  };
+  p->Emit(String::New("playlistMoved"), 3, argv);
 }
 
 static void PlaylistContainerLoaded(sp_playlistcontainer* pc, void* userdata) {
@@ -62,7 +79,7 @@ static void PlaylistContainerLoaded(sp_playlistcontainer* pc, void* userdata) {
 static sp_playlistcontainer_callbacks callbacks = {
   PlaylistAdded,
   PlaylistRemoved,
-  NULL,
+  PlaylistMoved,
   PlaylistContainerLoaded
 };
 
