@@ -62,6 +62,20 @@ Handle<Value> Artist::LoadedGetter(Local<String> property, const AccessorInfo& i
     : Undefined();
 }
 
+Handle<Value> Artist::URIGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  Artist *p = Unwrap<Artist>(info.This());
+  if (!p->artist_ || !sp_artist_is_loaded(p->artist_))
+    return Undefined();
+  char uri_buf[41]; // spotify:artist:0EcVDS2dfZR5RytFhFOtYH
+  sp_link *link = sp_link_create_from_artist(p->artist_);
+  if (!link)
+    return Undefined();
+  sp_link_as_string(link, uri_buf, sizeof(uri_buf));
+  sp_link_release(link);
+  return scope.Close(String::New(uri_buf));
+}
+
 void Artist::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
@@ -72,6 +86,7 @@ void Artist::Initialize(Handle<Object> target) {
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::New("loaded"), LoadedGetter);
+  instance_t->SetAccessor(String::New("uri"), URIGetter);
 
   target->Set(String::New("Artist"), constructor_template->GetFunction());
 }

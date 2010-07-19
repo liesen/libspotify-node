@@ -20,6 +20,7 @@ public:
   static v8::Handle<v8::Value> LoadedGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> AlbumGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> ArtistsGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> URIGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
 protected:
   bool SetupBackingTrack();
   sp_track* track_;

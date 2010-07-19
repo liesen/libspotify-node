@@ -114,6 +114,20 @@ Handle<Value> Track::ArtistsGetter(Local<String> property, const AccessorInfo& i
   scope.Close(array);
 }
 
+Handle<Value> Track::URIGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  Track *p = Unwrap<Track>(info.This());
+  if (!p->track_ || !sp_track_is_loaded(p->track_))
+    return Undefined();
+  char uri_buf[40]; // spotify:track:0EcVDS2dfZR5RytFhFOtYH
+  sp_link *link = sp_link_create_from_track(p->track_, 0);
+  if (!link)
+    return Undefined();
+  sp_link_as_string(link, uri_buf, sizeof(uri_buf));
+  sp_link_release(link);
+  return scope.Close(String::New(uri_buf));
+}
+
 void Track::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
@@ -126,6 +140,7 @@ void Track::Initialize(Handle<Object> target) {
   instance_t->SetAccessor(String::New("loaded"), LoadedGetter);
   instance_t->SetAccessor(String::New("album"), AlbumGetter);
   instance_t->SetAccessor(String::New("artists"), ArtistsGetter);
+  instance_t->SetAccessor(String::New("uri"), URIGetter);
 
   target->Set(String::New("Track"), constructor_template->GetFunction());
 }

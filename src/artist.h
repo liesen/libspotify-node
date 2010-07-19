@@ -16,6 +16,7 @@ public:
   static v8::Local<v8::Object> New(sp_artist *artist);
   
   static v8::Handle<v8::Value> LoadedGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> URIGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
 protected:
   void SetupBackingArtist();
   sp_artist* artist_;

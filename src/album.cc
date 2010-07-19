@@ -90,6 +90,20 @@ Handle<Value> Album::ArtistGetter(Local<String> property, const AccessorInfo& in
   scope.Close(artist);
 }
 
+Handle<Value> Album::URIGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  Album *p = Unwrap<Album>(info.This());
+  if (!p->album_ || !sp_album_is_loaded(p->album_))
+    return Undefined();
+  char uri_buf[40]; // spotify:album:0EcVDS2dfZR5RytFhFOtYH
+  sp_link *link = sp_link_create_from_album(p->album_);
+  if (!link)
+    return Undefined();
+  sp_link_as_string(link, uri_buf, sizeof(uri_buf));
+  sp_link_release(link);
+  return scope.Close(String::New(uri_buf));
+}
+
 void Album::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
@@ -101,6 +115,7 @@ void Album::Initialize(Handle<Object> target) {
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::New("loaded"), LoadedGetter);
   instance_t->SetAccessor(String::New("artist"), ArtistGetter);
+  instance_t->SetAccessor(String::New("uri"), URIGetter);
 
   target->Set(String::New("Album"), constructor_template->GetFunction());
 }
