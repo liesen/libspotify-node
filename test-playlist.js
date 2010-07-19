@@ -9,6 +9,9 @@ session.login(account.username, account.password, function (err) {
   sys.puts('logged in as: ' + session.user.displayName);
   session.playlists.addListener('playlistAdded', function(playlist, position){
     sys.puts("playlist added at "+position+". "+sys.inspect(playlist))
+    playlist.addListener('tracksAdded', function(count, position){
+      sys.puts(count+" tracks added at "+position);
+    })
   })
   session.playlists.addListener('playlistRemoved', function(playlist, position){
     sys.puts("playlist removed from "+position+". "+sys.inspect(playlist))

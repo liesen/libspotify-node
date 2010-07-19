@@ -10,11 +10,11 @@
 using namespace v8;
 using namespace node;
 
-class Playlist : public ObjectWrap {
+class Playlist : public node::EventEmitter {
  public:
   static void Initialize(v8::Handle<v8::Object> target);
   
-  Playlist(sp_playlist* playlist) : playlist_(playlist) {}
+  Playlist(sp_playlist* playlist);
   
   static Handle<Value> New(const Arguments& args);
   static Handle<Value> New(sp_playlist *playlist);
