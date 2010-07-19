@@ -194,7 +194,11 @@ Session::~Session() {
   ev_async_stop(EV_DEFAULT_UC_ &this->runloop_async_);
   this->DequeueLogMessages();
 
-  if (playlist_container_) delete playlist_container_;
+  if (playlist_container_) {
+    playlist_container_->Dispose();
+    delete playlist_container_;
+    playlist_container_ = NULL;
+  }
 
   if (login_callback_) {
     cb_destroy(login_callback_);
@@ -449,10 +453,13 @@ Handle<Value> Session::PlaylistContainerGetter(Local<String> property,
 
   if (!s->playlist_container_) {
     sp_playlistcontainer *pc = sp_session_playlistcontainer(s->session_);
-    s->playlist_container_ = PlaylistContainer::New(pc);
+    Handle<Value> playlist_container = PlaylistContainer::New(pc);
+    s->playlist_container_ = new Persistent<Object>();
+    *s->playlist_container_ = Persistent<Object>::New(
+      Handle<Object>::Cast((*playlist_container)->ToObject()));
   }
 
-  return scope.Close(s->playlist_container_->handle_);
+  return *s->playlist_container_;
 }
 
 Handle<Value> Session::UserGetter(Local<String> property,

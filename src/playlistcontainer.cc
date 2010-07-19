@@ -62,15 +62,17 @@ PlaylistContainer::PlaylistContainer(sp_playlistcontainer* playlist_container)
     sp_playlistcontainer_add_callbacks(this->playlist_container_, &callbacks, this);
 }
 
-PlaylistContainer *PlaylistContainer::New(sp_playlistcontainer *playlist_container) {
+Handle<Value> PlaylistContainer::New(sp_playlistcontainer *playlist_container) {
+  HandleScope scope;
   Local<Object> instance = constructor_template->GetFunction()->NewInstance(0, NULL);
   PlaylistContainer *pc = ObjectWrap::Unwrap<PlaylistContainer>(instance);
   pc->playlist_container_ = playlist_container;
   sp_playlistcontainer_add_callbacks(pc->playlist_container_, &callbacks, pc);
-  return pc;
+  return instance;
 }
 
 Handle<Value> PlaylistContainer::New(const Arguments& args) {
+  HandleScope scope;
   PlaylistContainer* pc = new PlaylistContainer(
     args.Length() > 0 && args[0]->IsExternal()
       ? (sp_playlistcontainer *)External::Unwrap(args[0])

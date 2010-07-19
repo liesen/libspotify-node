@@ -12,7 +12,7 @@ class PlaylistContainer : public node::EventEmitter {
 
   static void Initialize(v8::Handle<v8::Object> target);
 
-  static PlaylistContainer *New(sp_playlistcontainer* playlist_container);
+  static v8::Handle<v8::Value> New(sp_playlistcontainer* playlist_container);
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
   
   static v8::Handle<v8::Value> LengthGetter(v8::Local<v8::String> property,
