@@ -26,9 +26,6 @@ typedef struct search_data {
   Persistent<Function> *callback;
 } search_data_t;
 
-
-extern Handle<Object> *g_spotify_module;
-
 static Persistent<String> log_message_symbol;
 
 // ----------------------------------------------------------------------------
