@@ -5,7 +5,10 @@ var sys = require('sys');
 
 test(function (session) {
   session.playlists.addListener('load', function () {
-    sys.print(sys.inspect(this));
+    for (var i = 0; i < this.length; i++) {
+      assert.ok(this[i] instanceof spotify.Playlist);
+    }
+
     session.logout(assert.ifError);
   })
 });
