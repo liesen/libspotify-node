@@ -26,6 +26,13 @@ Handle<Value> Stub::New(const Arguments& args) {
   return args.This();
 }
 
+Handle<Value> Stub::FooGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  Stub *p = Unwrap<Stub>(info.This());
+  // do something with p
+  return Undefined();
+}
+
 void Stub::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
@@ -35,7 +42,7 @@ void Stub::Initialize(Handle<Object> target) {
   
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
-  // define getters etc here if neccessary
+  instance_t->SetAccessor(String::New("foo"), FooGetter);
 
   target->Set(String::New("Stub"), constructor_template->GetFunction());
 }
