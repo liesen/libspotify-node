@@ -10,7 +10,7 @@ session.login(account.username, account.password, function (err) {
   session.search('artist:belle', function(err, result){
     if (err) return sys.error(err.stack || err);
     sys.puts('search completed. '+result.tracks.length+' tracks');
-    sys.puts('tracks: '+sys.inspect(result.tracks));
+    sys.puts(sys.inspect(result, false, 8));
     sys.puts('logging out...');
     session.logout();
   })
