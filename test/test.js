@@ -1,17 +1,26 @@
 var assert = require('assert');
-var spotify = require('../spotify');
 var sys = require('sys');
+var account = require('../account');
+var spotify = require('../spotify');
 
-exports.createSession = function(account, thunk) {
+// make these modules available to any module which require()s this module
+GLOBAL.sys = sys;
+GLOBAL.assert = assert;
+GLOBAL.spotify = spotify;
+
+GLOBAL.createSession = function(dontForwardLogging, onsession) {
+  if (typeof dontForwardLogging === 'function') {
+    onsession = dontForwardLogging;
+    dontForwardLogging = false;
+  }
   var session = new spotify.Session({applicationKey: account.applicationKey});
-  session.addListener('logMessage', sys.log);
+  if (!dontForwardLogging) {
+    session.addListener('logMessage', function(m){
+      sys.log(m.substr(0,m.length-1));
+    });
+  }
   session.login(account.username, account.password, function (err) {
     assert.ifError(err);
-    thunk(session);
+    onsession(session);
   });
-}
-
-exports.createTestSession = function(thunk) { 
-  var account = require('./account');
-  exports.createSession(account, thunk)
 }
