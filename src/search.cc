@@ -136,7 +136,7 @@ void SearchResult::Initialize(Handle<Object> target) {
   instance_t->SetAccessor(String::NewSymbol("loaded"), LoadedGetter);
   instance_t->SetAccessor(String::NewSymbol("tracks"), TracksGetter);
   instance_t->SetAccessor(String::NewSymbol("albums"), AlbumsGetter);
-  instance_t->SetAccessor(String::NewSymbol("aritsts"), ArtistsGetter);
+  instance_t->SetAccessor(String::NewSymbol("artists"), ArtistsGetter);
   instance_t->SetAccessor(String::NewSymbol("totalTracks"), TotalTracksGetter);
   instance_t->SetAccessor(String::NewSymbol("query"), QueryGetter);
   instance_t->SetAccessor(String::NewSymbol("didYouMean"), DidYouMeanGetter);
