@@ -180,8 +180,12 @@ static void SearchComplete(sp_search *search, void *userdata) {
 // Session implementation
 
 Session::Session(sp_session* session)
-  : session_(session) , main_thread_id_((pthread_t) -1), login_callback_(NULL),
-    logout_callback_(NULL), playlist_container_(NULL) {
+    : session_(session)
+    , thread_id_((pthread_t) -1)
+    , login_callback_(NULL)
+    , logout_callback_(NULL)
+    , pc_(NULL)
+{
   memset((void*)&this->log_messages_q_, 0, sizeof(nt_atomic_queue));
 }
 
@@ -471,6 +475,7 @@ void Session::Initialize(Handle<Object> target) {
   //printf("main T# %p\n", pthread_self());
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
+  t->SetClassName(String::NewSymbol("Session"));
   t->Inherit(EventEmitter::constructor_template);
 
   NODE_SET_PROTOTYPE_METHOD(t, "logout", Logout);
