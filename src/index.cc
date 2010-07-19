@@ -1,6 +1,8 @@
 #include "session.h"
 #include "playlistcontainer.h"
 #include "playlist.h"
+#include "search.h"
+#include "track.h"
 
 #include <node.h>
 #include <libspotify/api.h>
@@ -13,5 +15,7 @@ extern "C" void init(Handle<Object> target) {
   Session::Initialize(target);
   PlaylistContainer::Initialize(target);
   Playlist::Initialize(target);
-  target->Set(String::New("version"), Integer::New(SPOTIFY_API_VERSION));
+  SearchResult::Initialize(target);
+  Track::Initialize(target);
+  target->Set(String::NewSymbol("version"), Integer::New(SPOTIFY_API_VERSION));
 }

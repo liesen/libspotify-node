@@ -1,5 +1,6 @@
 #include "session.h"
 #include "user.h"
+#include "search.h"
 
 #include <libspotify/api.h>
 #include <node.h>
@@ -18,6 +19,12 @@ typedef struct log_message {
   struct log_message *next;
   const char *message;
 } log_message_t;
+
+// userdata passed with a search query
+typedef struct search_data {
+  Session *session;
+  Persistent<Function> *callback;
+} search_data_t;
 
 static Persistent<String> logMessage_symbol;
 
@@ -146,6 +153,29 @@ static void ConnectionError(sp_session* session, sp_error error) {
   assert(s->thread_id_ == pthread_self() /* or we will crash */);
   Local<Value> argv[] = { String::New(sp_error_message(error)) };
   s->Emit(String::New("connection_error"), 1, argv);
+}
+
+static void SearchComplete(sp_search *search, void *userdata) {
+  search_data_t *sdata = static_cast<search_data_t*>(userdata);
+  Session *s = sdata->session;
+
+  assert((*sdata->callback)->IsFunction());
+
+  if (!search || sp_search_error(search) != SP_ERROR_OK) {
+    Local<Value> argv[] = {
+      Exception::Error(String::New(sp_error_message(sp_search_error(search))))
+    };
+    (*sdata->callback)->Call(s->handle_, 1, argv);
+  } else {
+    Handle<Value> argv[] = {
+      Undefined(),
+      SearchResult::New(search)
+    };
+    (*sdata->callback)->Call(s->handle_, 2, argv);
+  }
+  
+  cb_destroy(sdata->callback);
+  delete sdata;
 }
 
 // ----------------------------------------------------------------------------
@@ -306,8 +336,6 @@ Handle<Value> Session::Login(const Arguments& args) {
 
   Session* s = Unwrap<Session>(args.This());
 
-  #define SP_UTF8STR()
-
   char* username = NSValueToUTF8(args[0]);
   char* password = NSValueToUTF8(args[1]);
 
@@ -341,6 +369,66 @@ Handle<Value> Session::Logout(const Arguments& args) {
   sp_session_logout(s->session_);
   return Undefined();
 }
+
+Handle<Value> Session::Search(const Arguments& args) {
+  if (args.Length() != 2) NS_THROW(TypeError, "search takes exactly 2 arguments");
+  if (!args[0]->IsString() && !args[0]->IsObject())
+    NS_THROW(TypeError, "first argument must be a string or an object");
+  if (!args[1]->IsFunction()) NS_THROW(TypeError, "last argument must be a function");
+
+  Session* s = Unwrap<Session>(args.This());
+  char *query = NULL;
+  int track_offset = 0;
+  int track_count = 10;
+  int album_offset = 0;
+  int album_count = 10;
+  int artist_offset = 0;
+  int artist_count = 10;
+  
+  if (args[0]->IsObject()) {
+    Local<Object> opt = args[0]->ToObject();
+    
+    Local<String> k = String::New("query");
+    if (opt->Has(k)) {
+      Handle<Value> v = opt->Get(k);
+      if (!v->IsString()) NS_THROW(TypeError, "query must be a string");
+      query = NSValueToUTF8(v);
+    }
+
+    #define IOPT(_name_, _intvar_)\
+      k = String::New(_name_);\
+      if (opt->Has(k)) _intvar_ = opt->Get(k)->Uint32Value();
+
+    IOPT("trackOffset", track_offset);
+    IOPT("trackCount", track_count);
+    IOPT("albumOffset", album_offset);
+    IOPT("albumCount", album_count);
+    IOPT("artistOffset", artist_offset);
+    IOPT("artistCount", artist_count);
+
+    #undef IOPT
+  } else if (args[0]->IsString()) {
+    query = NSValueToUTF8(args[0]);
+  }
+
+  search_data_t *sdata = new search_data_t;
+  sdata->session = s;
+  sdata->callback = cb_persist(args[1]);
+
+  sp_search *search = sp_search_create(s->session_, query,
+    0, 10, 0, 5, 0, 3,
+    &SearchComplete, sdata);
+
+  delete query;
+  if (!search) {
+    NS_THROW(Error, "libspotify internal error when requesting search");
+  }
+
+  return Undefined();
+}
+
+// ---------
+// Properties
 
 Handle<Value> Session::ConnectionStateGetter(Local<String> property, const AccessorInfo& info) {
   HandleScope scope;
@@ -385,6 +473,7 @@ void Session::Initialize(Handle<Object> target) {
 
   NODE_SET_PROTOTYPE_METHOD(t, "logout", Logout);
   NODE_SET_PROTOTYPE_METHOD(t, "login", Login);
+  NODE_SET_PROTOTYPE_METHOD(t, "search", Search);
 
   Local<ObjectTemplate> instance_t = t->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);

@@ -16,7 +16,7 @@ class Session : public node::EventEmitter {
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
   static v8::Handle<v8::Value> Login(const v8::Arguments& args);
   static v8::Handle<v8::Value> Logout(const v8::Arguments& args);
-  static v8::Handle<v8::Value> Playlists(const v8::Arguments& args);
+  static v8::Handle<v8::Value> Search(const v8::Arguments& args);
   static v8::Handle<v8::Value> ConnectionStateGetter(
       v8::Local<v8::String> property,
       const v8::AccessorInfo& info);
