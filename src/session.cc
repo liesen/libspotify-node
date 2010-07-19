@@ -378,9 +378,7 @@ Handle<Value> Session::UserGetter(Local<String> property, const AccessorInfo& in
 
 
 void Session::Initialize(Handle<Object> target) {
-  
-  printf("main T# %p\n", pthread_self());
-  
+  //printf("main T# %p\n", pthread_self());
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
   t->Inherit(EventEmitter::constructor_template);
