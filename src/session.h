@@ -7,6 +7,7 @@
 #include <libspotify/api.h>
 
 #include "atomic_queue.h"
+#include "playlistcontainer.h"
 
 class Session : public node::EventEmitter {
  public:
@@ -15,6 +16,7 @@ class Session : public node::EventEmitter {
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
   static v8::Handle<v8::Value> Login(const v8::Arguments& args);
   static v8::Handle<v8::Value> Logout(const v8::Arguments& args);
+  static v8::Handle<v8::Value> Playlists(const v8::Arguments& args);
   static v8::Handle<v8::Value> ConnectionStateGetter(
       v8::Local<v8::String> property,
       const v8::AccessorInfo& info);
@@ -35,6 +37,7 @@ class Session : public node::EventEmitter {
   pthread_t thread_id_;
   v8::Persistent<v8::Function> *logout_callback_;
   v8::Persistent<v8::Function> *login_callback_;
+  PlaylistContainer *pc_;
 
   // Node-Spotify runloop glue
   ev_timer runloop_timer_;

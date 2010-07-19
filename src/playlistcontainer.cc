@@ -8,10 +8,17 @@
 using namespace v8;
 using namespace node;
 
+Persistent<FunctionTemplate> PlaylistContainer::constructor_template;
+
+// -----------------------------------------------------------------------------
+// libspotify callbacks
+
 static void PlaylistAdded(sp_playlistcontainer *pc,
                           sp_playlist *playlist,
                           int position,
-                          void *userdata) {
+                          void *userdata)
+{
+  // this is called on the main thread
   fprintf(stderr, "sp: playlist added, %d: %s\n", position, sp_playlist_name(playlist));
   // Emit("playlist_added", 0, NULL);
 }
@@ -19,37 +26,56 @@ static void PlaylistAdded(sp_playlistcontainer *pc,
 static void PlaylistRemoved(sp_playlistcontainer *pc,
                             sp_playlist *playlist,
                             int position,
-                            void *userdata) {
+                            void *userdata)
+{
+  // this is called on the main thread
   fprintf(stderr, "sp: playlist removed%d\n", position);
 }
 
-static void PlaylistContainerLoaded(sp_playlistcontainer* pc,
-                                    void* userdata) {
-  fprintf(stderr, "sp: playlist container loaded\n");
-  // PlaylistContainer* p = static_cast<PlaylistContainer*>(userdata);
-  // p->Emit(String::New("container_loaded"), 0, NULL);
+static void PlaylistContainerLoaded(sp_playlistcontainer* pc, void* userdata) {
+  // this is called on the main thread
+  PlaylistContainer* p = static_cast<PlaylistContainer*>(userdata);
+  p->Emit(String::New("load"), 0, NULL);
 }
 
-Handle<Object> PlaylistContainer::New(
-    sp_playlistcontainer *playlist_container) {
-  HandleScope scope;
+// -----------------------------------------------------------------------------
+// PlaylistContainer implementation
 
-  Local<FunctionTemplate> t = FunctionTemplate::New();
-//  t->Inherit(EventEmitter::constructor_template);
+static sp_playlistcontainer_callbacks callbacks = {
+  PlaylistAdded,
+  PlaylistRemoved,
+  NULL,
+  PlaylistContainerLoaded
+};
 
-  Local<ObjectTemplate> instance_t = t->InstanceTemplate();
-  instance_t->SetInternalFieldCount(1);
-  instance_t->SetAccessor(NODE_PSYMBOL("length"), NumPlaylists);
-  instance_t->SetIndexedPropertyHandler(PlaylistGetter,
-                                        PlaylistSetter,
-                                        PlaylistQuery,
-                                        PlaylistDeleter,
-                                        PlaylistEnumerator);
+PlaylistContainer::PlaylistContainer(sp_playlistcontainer* playlist_container)
+  : node::EventEmitter()
+  , playlist_container_(playlist_container)
+{
+  this->playlist_container_ = playlist_container_;
+  if (this->playlist_container_)
+    sp_playlistcontainer_add_callbacks(this->playlist_container_, &callbacks, this);
+}
 
-  Local<Object> instance = instance_t->NewInstance();
-  PlaylistContainer* pc = new PlaylistContainer(playlist_container);
-  pc->Wrap(instance);
+PlaylistContainer *PlaylistContainer::New(sp_playlistcontainer *playlist_container) {
+  Local<Object> instance = constructor_template->GetFunction()->NewInstance(0, NULL);
+  PlaylistContainer *pc = ObjectWrap::Unwrap<PlaylistContainer>(instance);
+  pc->playlist_container_ = playlist_container;
+  sp_playlistcontainer_add_callbacks(pc->playlist_container_, &callbacks, pc);
+  return pc;
+}
 
+Handle<Value> PlaylistContainer::New(const Arguments& args) {
+  PlaylistContainer* pc = new PlaylistContainer(
+    (args.Length() && args[0]->IsExternal())
+      ? (sp_playlistcontainer *)External::Unwrap(args[0])
+      : NULL );
+  pc->Wrap(args.This());
+  return args.This();
+}
+
+Handle<Value> PlaylistContainer::StartLoading(const Arguments& args) {
+  PlaylistContainer* pc = Unwrap<PlaylistContainer>(args.This());
   sp_playlistcontainer_callbacks callbacks = {
     PlaylistAdded,
     PlaylistRemoved,
@@ -58,10 +84,10 @@ Handle<Object> PlaylistContainer::New(
   };
 
   sp_playlistcontainer_add_callbacks(pc->playlist_container_, &callbacks, pc);
-  return scope.Close(instance);
+  return Undefined();
 }
 
-Handle<Value> PlaylistContainer::NumPlaylists(Local<String> property,
+Handle<Value> PlaylistContainer::LengthGetter(Local<String> property,
                                               const AccessorInfo& info) {
   HandleScope scope;
   sp_playlistcontainer* pc = Unwrap<PlaylistContainer>(info.This())->playlist_container_;
@@ -69,11 +95,12 @@ Handle<Value> PlaylistContainer::NumPlaylists(Local<String> property,
   return scope.Close(Integer::New(num_playlists));
 }
 
-Handle<Value> PlaylistContainer::PlaylistGetter(uint32_t index, 
-                                                const AccessorInfo& info) {
+Handle<Value> PlaylistContainer::PlaylistGetter(uint32_t index, const AccessorInfo& info) {
   HandleScope scope;
   sp_playlistcontainer* pc = Unwrap<PlaylistContainer>(info.This())->playlist_container_;
   sp_playlist* playlist = sp_playlistcontainer_playlist(pc, index);
+  if (!playlist)
+    return Undefined();
   const char* playlist_name = sp_playlist_name(playlist);
   return scope.Close(String::New(playlist_name));
 }
@@ -106,3 +133,23 @@ Handle<Array> PlaylistContainer::PlaylistEnumerator(const AccessorInfo& info) {
   return scope.Close(Array::New(num_playlists));
 }
 
+void PlaylistContainer::Initialize(Handle<Object> target) {
+  HandleScope scope;
+  Local<FunctionTemplate> t = FunctionTemplate::New(New);
+  constructor_template = Persistent<FunctionTemplate>::New(t);
+  constructor_template->SetClassName(String::NewSymbol("PlaylistContainer"));
+  constructor_template->Inherit(EventEmitter::constructor_template);
+
+  NODE_SET_PROTOTYPE_METHOD(constructor_template, "startLoading", StartLoading);
+
+  Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
+  instance_t->SetInternalFieldCount(1);
+  instance_t->SetAccessor(NODE_PSYMBOL("length"), LengthGetter);
+  instance_t->SetIndexedPropertyHandler(PlaylistGetter,
+                                        PlaylistSetter,
+                                        PlaylistQuery,
+                                        PlaylistDeleter,
+                                        PlaylistEnumerator);
+
+  target->Set(String::New("PlaylistContainer"), constructor_template->GetFunction());
+}

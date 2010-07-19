@@ -1,4 +1,3 @@
-#include "playlistcontainer.h"
 #include "session.h"
 #include "user.h"
 
@@ -14,6 +13,7 @@
 using namespace node;
 using namespace v8;
 
+// log message struct queued on session->log_messages_q_
 typedef struct log_message {
   struct log_message *next;
   const char *message;
@@ -21,7 +21,7 @@ typedef struct log_message {
 
 static Persistent<String> logMessage_symbol;
 
-// -------
+// ----------------------------------------------------------------------------
 // Helpers
 
 #define NS_THROW(_type_, _msg_)\
@@ -32,6 +32,9 @@ static inline char *NSValueToUTF8(Handle<Value> v) {
   v->ToString()->WriteUtf8(p);
   return p;
 }
+
+// ----------------------------------------------------------------------------
+// libspotify callbacks
 
 static void SpotifyRunloopTimerProcess(EV_P_ ev_timer *w, int revents) {
   Session *s = static_cast<Session*>(w->data);
@@ -109,7 +112,7 @@ static void LoggedOut(sp_session* session) {
   assert(s->thread_id_ == pthread_self() /* or we will crash */);
   if (s->logout_callback_) {
     assert((*s->logout_callback_)->IsFunction());
-    (*s->logout_callback_)->Call(Context::GetCurrent()->Global(), 0, NULL);
+    (*s->logout_callback_)->Call(s->handle_, 0, NULL);
     cb_destroy(s->logout_callback_);
     s->logout_callback_ = NULL;
   }
@@ -124,9 +127,9 @@ static void LoggedIn(sp_session* session, sp_error error) {
   assert(s->thread_id_ == pthread_self() /* or we will crash */);
   if (error != SP_ERROR_OK) {
     Local<Value> argv[] = { Exception::Error(String::New(sp_error_message(error))) };
-    (*s->login_callback_)->Call(Context::GetCurrent()->Global(), 1, argv);
+    (*s->login_callback_)->Call(s->handle_, 1, argv);
   } else {
-    (*s->login_callback_)->Call(Context::GetCurrent()->Global(), 0, NULL);
+    (*s->login_callback_)->Call(s->handle_, 0, NULL);
   }
   cb_destroy(s->login_callback_);
   s->login_callback_ = NULL;
@@ -145,40 +148,32 @@ static void ConnectionError(sp_session* session, sp_error error) {
   s->Emit(String::New("connection_error"), 1, argv);
 }
 
-
-void Session::Initialize(Handle<Object> target) {
-  HandleScope scope;
-  Local<FunctionTemplate> t = FunctionTemplate::New(New);
-  t->Inherit(EventEmitter::constructor_template);
-
-  NODE_SET_PROTOTYPE_METHOD(t, "logout", Logout);
-  NODE_SET_PROTOTYPE_METHOD(t, "login", Login);
-
-  Local<ObjectTemplate> instance_t = t->InstanceTemplate();
-  instance_t->SetInternalFieldCount(1);
-  instance_t->SetAccessor(String::New("user"), UserGetter);
-  instance_t->SetAccessor(String::New("connectionState"),
-                          ConnectionStateGetter);
-  instance_t->SetAccessor(String::New("playlists"), PlaylistContainerGetter);
-
-  target->Set(String::New("Session"), t->GetFunction());
-
-  logMessage_symbol = NODE_PSYMBOL("logMessage");
-}
-
-Session::~Session() {
-  ev_timer_stop(EV_DEFAULT_UC_ &this->runloop_timer_);
-  ev_async_stop(EV_DEFAULT_UC_ &this->runloop_async_);
-  this->DequeueLogMessages();
-}
+// ----------------------------------------------------------------------------
+// Session implementation
 
 Session::Session(sp_session* session)
   : session_(session)
   , thread_id_((pthread_t) -1)
   , login_callback_(NULL)
   , logout_callback_(NULL)
+  , pc_(NULL)
 {
   memset((void*)&this->log_messages_q_, 0, sizeof(nt_atomic_queue));
+}
+
+Session::~Session() {
+  ev_timer_stop(EV_DEFAULT_UC_ &this->runloop_timer_);
+  ev_async_stop(EV_DEFAULT_UC_ &this->runloop_async_);
+  this->DequeueLogMessages();
+  if (this->pc_) delete pc_;
+  if (this->login_callback_) {
+    cb_destroy(this->login_callback_);
+    this->login_callback_ = NULL;
+  }
+  if (this->logout_callback_) {
+    cb_destroy(this->logout_callback_);
+    this->logout_callback_ = NULL;
+  }
 }
 
 Handle<Value> Session::New(const Arguments& args) {
@@ -339,7 +334,7 @@ Handle<Value> Session::Logout(const Arguments& args) {
 
   // save logout callback
   if (args.Length() > 0) {
-    if (s->logout_callback_) cb_destroy(s->login_callback_);
+    if (s->logout_callback_) cb_destroy(s->logout_callback_);
     s->logout_callback_ = cb_persist(args[0]);
   }
 
@@ -354,13 +349,16 @@ Handle<Value> Session::ConnectionStateGetter(Local<String> property, const Acces
   return scope.Close(Integer::New(connectionstate));
 }
 
+extern Handle<Object> *g_spotify_module;
 
 Handle<Value> Session::PlaylistContainerGetter(Local<String> property,
-                                               const AccessorInfo& info) {
+                                               const AccessorInfo& info)
+{
   HandleScope scope;
   Session* s = Unwrap<Session>(info.This());
-  sp_playlistcontainer* pc = sp_session_playlistcontainer(s->session_);
-  return scope.Close(PlaylistContainer::New(pc));
+  if (!s->pc_)
+    s->pc_ = PlaylistContainer::New(sp_session_playlistcontainer(s->session_));
+  return scope.Close(s->pc_->handle_);
 }
 
 Handle<Value> Session::UserGetter(Local<String> property, const AccessorInfo& info) {
@@ -376,4 +374,25 @@ Handle<Value> Session::UserGetter(Local<String> property, const AccessorInfo& in
   }
 
   return scope.Close(User::NewInstance(user));
+}
+
+
+void Session::Initialize(Handle<Object> target) {
+  HandleScope scope;
+  Local<FunctionTemplate> t = FunctionTemplate::New(New);
+  t->Inherit(EventEmitter::constructor_template);
+
+  NODE_SET_PROTOTYPE_METHOD(t, "logout", Logout);
+  NODE_SET_PROTOTYPE_METHOD(t, "login", Login);
+
+  Local<ObjectTemplate> instance_t = t->InstanceTemplate();
+  instance_t->SetInternalFieldCount(1);
+  instance_t->SetAccessor(String::New("user"), UserGetter);
+  instance_t->SetAccessor(String::New("connectionState"),
+                          ConnectionStateGetter);
+  instance_t->SetAccessor(String::New("playlists"), PlaylistContainerGetter);
+
+  target->Set(String::New("Session"), t->GetFunction());
+
+  logMessage_symbol = NODE_PSYMBOL("logMessage");
 }
