@@ -11,6 +11,16 @@ using namespace node;
 
 Persistent<FunctionTemplate> PlaylistContainer::constructor_template;
 
+#define THROW_EXCEPTION(_type_, _msg_)\
+  return ThrowException(Exception::_type_(String::New(_msg_)))
+
+static inline char* ToCString(Handle<Value> value) {
+  Local<String> str = value->ToString();
+  char *p = new char[str->Utf8Length()];
+  str->WriteUtf8(p);
+  return p;
+}
+
 // -----------------------------------------------------------------------------
 // libspotify callbacks
 
@@ -94,10 +104,7 @@ Handle<Value> PlaylistContainer::PlaylistGetter(uint32_t index, const AccessorIn
   PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
   sp_playlist* playlist = sp_playlistcontainer_playlist(
       pc->playlist_container_, index);
-
-  if (playlist == NULL)
-    return scope.Close(Undefined());
-
+  if (!playlist) return Undefined();
   return scope.Close(Playlist::New(playlist));
 }
 
@@ -136,6 +143,29 @@ Handle<Array> PlaylistContainer::PlaylistEnumerator(const AccessorInfo& info) {
   return scope.Close(playlists);
 }
 
+Handle<Value> PlaylistContainer::Create(const Arguments& args) {
+  HandleScope scope;
+
+  if (args.Length() != 1) THROW_EXCEPTION(TypeError, "search takes exactly 1 argument");
+  if (!args[0]->IsString()) THROW_EXCEPTION(TypeError, "first argument must be a string");
+  //if (!args[1]->IsFunction()) THROW_EXCEPTION(TypeError, "last argument must be a function");
+
+  PlaylistContainer* s = Unwrap<PlaylistContainer>(args.This());
+
+  char *name = ToCString(args[0]);
+  sp_playlist *playlist = sp_playlistcontainer_add_new_playlist(
+    s->playlist_container_,
+    //(*String::Utf8Value((args[0])->ToString()))
+    name
+  );
+  delete name;
+
+  if (!playlist)
+    THROW_EXCEPTION(Error, "failed to create new playlist");
+
+  return scope.Close(Playlist::New(playlist));
+}
+
 void PlaylistContainer::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
@@ -143,9 +173,11 @@ void PlaylistContainer::Initialize(Handle<Object> target) {
   constructor_template->SetClassName(String::NewSymbol("PlaylistContainer"));
   constructor_template->Inherit(EventEmitter::constructor_template);
 
+  NODE_SET_PROTOTYPE_METHOD(constructor_template, "create", Create);
+
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
-  instance_t->SetAccessor(NODE_PSYMBOL("length"), LengthGetter);
+  instance_t->SetAccessor(String::NewSymbol("length"), LengthGetter);
   instance_t->SetIndexedPropertyHandler(PlaylistGetter,
                                         PlaylistSetter,
                                         PlaylistQuery,

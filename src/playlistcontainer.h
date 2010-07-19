@@ -29,7 +29,7 @@ class PlaylistContainer : public node::EventEmitter {
   static v8::Handle<v8::Array> PlaylistEnumerator(const v8::AccessorInfo& info);
   
   
-  static v8::Handle<v8::Value> StartLoading(const v8::Arguments& args);
+  static v8::Handle<v8::Value> Create(const v8::Arguments& args);
   
   sp_playlistcontainer* playlist_container_;
 
