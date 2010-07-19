@@ -14,11 +14,11 @@
 using namespace node;
 using namespace v8;
 
-// log message struct queued on session->log_messages_q_
 typedef struct log_message {
   struct log_message *next;
   const char *message;
 } log_message_t;
+
 
 // userdata passed with a search query
 typedef struct search_data {
@@ -26,17 +26,21 @@ typedef struct search_data {
   Persistent<Function> *callback;
 } search_data_t;
 
-static Persistent<String> logMessage_symbol;
+
+extern Handle<Object> *g_spotify_module;
+
+static Persistent<String> log_message_symbol;
 
 // ----------------------------------------------------------------------------
 // Helpers
 
-#define NS_THROW(_type_, _msg_)\
+#define THROW_EXCEPTION(_type_, _msg_)\
   return ThrowException(Exception::_type_(String::New(_msg_)))
 
-static inline char *NSValueToUTF8(Handle<Value> v) {
-  char *p = new char[v->ToString()->Utf8Length()];
-  v->ToString()->WriteUtf8(p);
+static inline const char* ToCString(Handle<Value> value) {
+  Local<String> str = value->ToString();
+  char *p = new char[str->Utf8Length()];
+  str->WriteUtf8(p);
   return p;
 }
 
@@ -63,24 +67,21 @@ static void NotifyMainThread(sp_session* session) {
 
 void Session::ProcessEvents() {
   int timeout = 0;
-  // stop timer
   ev_timer_stop(EV_DEFAULT_UC_ &this->runloop_timer_);
 
   if (this->session_)
     sp_session_process_events(this->session_, &timeout);
 
-  // schedule next tick
-  ev_timer_set(&this->runloop_timer_, ((float)timeout)/1000.0, 0.0);
+  ev_timer_set(&this->runloop_timer_, timeout / 1000.0, 0.0);
   ev_timer_start(EV_DEFAULT_UC_ &this->runloop_timer_);
 }
 
 void Session::DequeueLogMessages() {
   log_message_t *msg;
-  while ((msg = (log_message_t *)nt_atomic_dequeue(&this->log_messages_q_,
-    offsetof(log_message_t, next))))
-  {
+  while (msg = static_cast<log_message_t*>(nt_atomic_dequeue(&log_messages_q_,
+    offsetof(log_message_t, next)))) {
     Local<Value> argv[] = { String::New(msg->message) };
-    this->Emit(logMessage_symbol, 1, argv);
+    Emit(log_message_symbol, 1, argv);
     delete msg->message;
     delete msg;
   }
@@ -93,10 +94,10 @@ static void SpotifyRunloopAsyncLogMessage(EV_P_ ev_async *w, int revents) {
 
 static void LogMessage(sp_session* session, const char* data) {
   Session* s = static_cast<Session*>(sp_session_userdata(session));
-  if (pthread_self() == s->thread_id_) {
+  if (pthread_self() == s->main_thread_id_) {
     // Called from the main runloop thread -- emit directly
     Local<Value> argv[] = { String::New(data) };
-    s->Emit(logMessage_symbol, 1, argv);
+    s->Emit(log_message_symbol, 1, argv);
   } else {
     // Called from a background thread -- queue and notify
     log_message_t *msg = new log_message_t;
@@ -109,14 +110,14 @@ static void LogMessage(sp_session* session, const char* data) {
 
 static void MessageToUser(sp_session* session, const char* data) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  assert(s->thread_id_ == pthread_self() /* or we will crash */);
+  assert(s->main_thread_id_ == pthread_self() /* or we will crash */);
   Local<Value> argv[] = { String::New(data) };
   s->Emit(String::New("message_to_user"), 1, argv);
 }
 
 static void LoggedOut(sp_session* session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  assert(s->thread_id_ == pthread_self() /* or we will crash */);
+  assert(s->main_thread_id_ == pthread_self() /* or we will crash */);
   if (s->logout_callback_) {
     assert((*s->logout_callback_)->IsFunction());
     (*s->logout_callback_)->Call(s->handle_, 0, NULL);
@@ -131,7 +132,7 @@ static void LoggedIn(sp_session* session, sp_error error) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
   assert(s->login_callback_ != NULL);
   assert((*s->login_callback_)->IsFunction());
-  assert(s->thread_id_ == pthread_self() /* or we will crash */);
+  assert(s->main_thread_id_ == pthread_self() /* or we will crash */);
   if (error != SP_ERROR_OK) {
     Local<Value> argv[] = { Exception::Error(String::New(sp_error_message(error))) };
     (*s->login_callback_)->Call(s->handle_, 1, argv);
@@ -144,13 +145,13 @@ static void LoggedIn(sp_session* session, sp_error error) {
 
 static void MetadataUpdated(sp_session *session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  assert(s->thread_id_ == pthread_self() /* or we will crash */);
+  assert(s->main_thread_id_ == pthread_self() /* or we will crash */);
   s->Emit(String::New("metadataUpdated"), 0, NULL);
 }
 
 static void ConnectionError(sp_session* session, sp_error error) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
-  assert(s->thread_id_ == pthread_self() /* or we will crash */);
+  assert(s->main_thread_id_ == pthread_self() /* or we will crash */);
   Local<Value> argv[] = { String::New(sp_error_message(error)) };
   s->Emit(String::New("connection_error"), 1, argv);
 }
@@ -182,12 +183,8 @@ static void SearchComplete(sp_search *search, void *userdata) {
 // Session implementation
 
 Session::Session(sp_session* session)
-  : session_(session)
-  , thread_id_((pthread_t) -1)
-  , login_callback_(NULL)
-  , logout_callback_(NULL)
-  , pc_(NULL)
-{
+  : session_(session) , main_thread_id_((pthread_t) -1), login_callback_(NULL),
+    logout_callback_(NULL), playlist_container_(NULL) {
   memset((void*)&this->log_messages_q_, 0, sizeof(nt_atomic_queue));
 }
 
@@ -195,20 +192,22 @@ Session::~Session() {
   ev_timer_stop(EV_DEFAULT_UC_ &this->runloop_timer_);
   ev_async_stop(EV_DEFAULT_UC_ &this->runloop_async_);
   this->DequeueLogMessages();
-  if (this->pc_) delete pc_;
-  if (this->login_callback_) {
-    cb_destroy(this->login_callback_);
-    this->login_callback_ = NULL;
+
+  if (playlist_container_) delete playlist_container_;
+
+  if (login_callback_) {
+    cb_destroy(login_callback_);
+    login_callback_ = NULL;
   }
-  if (this->logout_callback_) {
-    cb_destroy(this->logout_callback_);
-    this->logout_callback_ = NULL;
+
+  if (logout_callback_) {
+    cb_destroy(logout_callback_);
+    logout_callback_ = NULL;
   }
 }
 
 Handle<Value> Session::New(const Arguments& args) {
   Session* s = new Session(NULL);
-
   static sp_session_callbacks callbacks = {
     /* logged_in */             LoggedIn,
     /* logged_out */            LoggedOut,
@@ -216,72 +215,71 @@ Handle<Value> Session::New(const Arguments& args) {
     /* connection_error */      ConnectionError,
     /* message_to_user */       MessageToUser,
     /* notify_main_thread */    NotifyMainThread,
-    /* music_delivery */        NULL, // we don't play music
-    /* play_token_lost */       NULL, // we don't play music
+    /* music_delivery */        NULL,  // we don't play music
+    /* play_token_lost */       NULL,  // we don't play music
     /* log_message */           LogMessage,
-    /* end_of_track */          NULL, // we don't play music
+    /* end_of_track */          NULL,  // we don't play music
   };
 
   sp_session_config config = {
     /* api_version */           SPOTIFY_API_VERSION,
-    /* cache_location */        NULL, // must be set and is below
-    /* settings_location */     NULL, // must be set and is below
-    /* application_key */       NULL, // optional but set below
+    /* cache_location */        NULL,  // must be set and is below
+    /* settings_location */     NULL,  // must be set and is below
+    /* application_key */       NULL,  // optional but set below
     /* application_key_size */  0,
-    /* user_agent */            NULL, // must be set and is below
+    /* user_agent */            NULL,  // must be set and is below
     /* callbacks */             &callbacks,
     /* userdata */              s,
   };
 
   // appkey buffer
-  uint8_t *keybuf = NULL;
+  uint8_t *application_key = NULL;
 
   if (args.Length() > 0) {
     if (!args[0]->IsObject())
-      NS_THROW(TypeError, "first argument must be an object");
+      THROW_EXCEPTION(TypeError, "first argument must be an object");
 
     Local<Object> configuration = args[0]->ToObject();
 
     // applicationKey
     if (configuration->Has(String::New("applicationKey"))) {
       Local<Value> v = configuration->Get(String::New("applicationKey"));
-      if (!v->IsArray()) NS_THROW(TypeError, "applicationKey must be an array of integers");
+      if (!v->IsArray()) THROW_EXCEPTION(TypeError, "applicationKey must be an array of integers");
       Local<Array> a = Local<Array>::Cast(v);
-      keybuf = new uint8_t[a->Length()];
+      application_key = new uint8_t[a->Length()];
       config.application_key_size = a->Length();
+
       for (int i = 0; i < a->Length(); i++) {
-        keybuf[i] = a->Get(i)->Uint32Value();
+        application_key[i] = a->Get(i)->Uint32Value();
       }
-      config.application_key = keybuf;
+
+      config.application_key = application_key;
     }
 
     // userAgent
     if (configuration->Has(String::New("userAgent"))) {
       Handle<Value> v = configuration->Get(String::New("userAgent"));
-      if (!v->IsString()) NS_THROW(TypeError, "userAgent must be a string");
-      config.user_agent = NSValueToUTF8(v);
+      if (!v->IsString()) THROW_EXCEPTION(TypeError, "userAgent must be a string");
+      config.user_agent = ToCString(v);
     } else {
-      // we strdup so we can safely free at dealloc
       config.user_agent = strdup("node-spotify");
     }
 
     // cacheLocation
     if (configuration->Has(String::New("cacheLocation"))) {
       Handle<Value> v = configuration->Get(String::New("cacheLocation"));
-      if (!v->IsString()) NS_THROW(TypeError, "cacheLocation must be a string");
-      config.cache_location = NSValueToUTF8(v);
+      if (!v->IsString()) THROW_EXCEPTION(TypeError, "cacheLocation must be a string");
+      config.cache_location = ToCString(v);
     } else {
-      // we strdup so we can safely free at dealloc
       config.cache_location = strdup(".spotify-cache");
     }
 
     // settingsLocation
     if (configuration->Has(String::New("settingsLocation"))) {
       Handle<Value> v = configuration->Get(String::New("settingsLocation"));
-      if (!v->IsString()) NS_THROW(TypeError, "settingsLocation must be a string");
-      config.settings_location = NSValueToUTF8(v);
+      if (!v->IsString()) THROW_EXCEPTION(TypeError, "settingsLocation must be a string");
+      config.settings_location = ToCString(v);
     } else {
-      // we strdup so we can safely free at dealloc
       config.settings_location = strdup(".spotify-settings");
     }
   }
@@ -309,7 +307,7 @@ Handle<Value> Session::New(const Arguments& args) {
   sp_error error = sp_session_init(&config, &session);
 
   // free temporary buffers in config
-  if (keybuf) delete keybuf;
+  if (application_key) delete application_key;
   #define F(_name_) if (config._name_) {\
     delete config._name_; config._name_ = NULL; }
   F(user_agent)
@@ -318,10 +316,10 @@ Handle<Value> Session::New(const Arguments& args) {
   #undef F
 
   if (error != SP_ERROR_OK)
-    NS_THROW(Error, sp_error_message(error));
+    THROW_EXCEPTION(Error, sp_error_message(error));
 
   s->session_ = session;
-  s->thread_id_ = pthread_self();
+  s->main_thread_id_ = pthread_self();
   s->Wrap(args.Holder());
   return args.This();
 }
@@ -329,15 +327,15 @@ Handle<Value> Session::New(const Arguments& args) {
 Handle<Value> Session::Login(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() != 3) NS_THROW(TypeError, "login takes exactly 3 arguments");
-  if (!args[0]->IsString()) NS_THROW(TypeError, "first argument must be a string");
-  if (!args[1]->IsString()) NS_THROW(TypeError, "second argument must be a string");
-  if (!args[2]->IsFunction()) NS_THROW(TypeError, "last argument must be a function");
+  if (args.Length() != 3) THROW_EXCEPTION(TypeError, "login takes exactly 3 arguments");
+  if (!args[0]->IsString()) THROW_EXCEPTION(TypeError, "first argument must be a string");
+  if (!args[1]->IsString()) THROW_EXCEPTION(TypeError, "second argument must be a string");
+  if (!args[2]->IsFunction()) THROW_EXCEPTION(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
 
-  char* username = NSValueToUTF8(args[0]);
-  char* password = NSValueToUTF8(args[1]);
+  const char* username = ToCString(args[0]);
+  const char* password = ToCString(args[1]);
 
   // increase refcount for our timer event
   ev_ref(EV_DEFAULT_UC);
@@ -345,9 +343,7 @@ Handle<Value> Session::Login(const Arguments& args) {
   // save login callback
   if (s->login_callback_) cb_destroy(s->login_callback_);
   s->login_callback_ = cb_persist(args[2]);
-
   sp_session_login(s->session_, username, password);
-
   delete username, password;
   return Undefined();
 }
@@ -356,7 +352,7 @@ Handle<Value> Session::Logout(const Arguments& args) {
   HandleScope scope;
 
   if (args.Length() > 0 && !args[0]->IsFunction())
-    NS_THROW(TypeError, "last argument must be a function");
+    THROW_EXCEPTION(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
 
@@ -371,58 +367,62 @@ Handle<Value> Session::Logout(const Arguments& args) {
 }
 
 Handle<Value> Session::Search(const Arguments& args) {
-  if (args.Length() != 2) NS_THROW(TypeError, "search takes exactly 2 arguments");
+  if (args.Length() != 2) THROW_EXCEPTION(TypeError, "search takes exactly 2 arguments");
   if (!args[0]->IsString() && !args[0]->IsObject())
-    NS_THROW(TypeError, "first argument must be a string or an object");
-  if (!args[1]->IsFunction()) NS_THROW(TypeError, "last argument must be a function");
+    THROW_EXCEPTION(TypeError, "first argument must be a string or an object");
+  if (!args[1]->IsFunction()) THROW_EXCEPTION(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
-  char *query = NULL;
-  int track_offset = 0;
-  int track_count = 10;
-  int album_offset = 0;
-  int album_count = 10;
-  int artist_offset = 0;
-  int artist_count = 10;
+  const int kDefaultTrackOffset = 0;
+  const int kDefaultTrackCount = 10;
+  const int kDefaultAlbumOffset = 0;
+  const int kDefaultAlbumCount = 10;
+  const int kDefaultArtistOffset = 0;
+  const int kDefaultArtistCount = 10;
+
+  const char *query = NULL;
+  int track_offset;
+  int track_count;
+  int album_offset;
+  int album_count;
+  int artist_offset;
+  int artist_count;
   
-  if (args[0]->IsObject()) {
+  if (args[0]->IsString()) {
+    query = ToCString(args[0]);
+  } else if (args[0]->IsObject()) {
     Local<Object> opt = args[0]->ToObject();
-    
     Local<String> k = String::New("query");
+
     if (opt->Has(k)) {
       Handle<Value> v = opt->Get(k);
-      if (!v->IsString()) NS_THROW(TypeError, "query must be a string");
-      query = NSValueToUTF8(v);
+      if (!v->IsString()) THROW_EXCEPTION(TypeError, "query must be a string");
+      query = ToCString(v);
     }
 
-    #define IOPT(_name_, _intvar_)\
+    #define IOPT(_name_, _intvar_, _default_)\
       k = String::New(_name_);\
-      if (opt->Has(k)) _intvar_ = opt->Get(k)->Uint32Value();
+      _intvar_ = opt->Has(k) ? opt->Get(k)->Uint32Value() : _default_;
 
-    IOPT("trackOffset", track_offset);
-    IOPT("trackCount", track_count);
-    IOPT("albumOffset", album_offset);
-    IOPT("albumCount", album_count);
-    IOPT("artistOffset", artist_offset);
-    IOPT("artistCount", artist_count);
+    IOPT("trackOffset", track_offset, kDefaultTrackOffset);
+    IOPT("trackCount", track_count, kDefaultTrackCount);
+    IOPT("albumOffset", album_offset, kDefaultAlbumOffset);
+    IOPT("albumCount", album_count, kDefaultAlbumOffset);
+    IOPT("artistOffset", artist_offset, kDefaultArtistOffset);
+    IOPT("artistCount", artist_count, kDefaultArtistCount);
 
     #undef IOPT
-  } else if (args[0]->IsString()) {
-    query = NSValueToUTF8(args[0]);
   }
 
-  search_data_t *sdata = new search_data_t;
-  sdata->session = s;
-  sdata->callback = cb_persist(args[1]);
-
-  sp_search *search = sp_search_create(s->session_, query,
-    0, 10, 0, 5, 0, 3,
-    &SearchComplete, sdata);
-
+  search_data_t *search_data = new search_data_t;
+  search_data->session = s;
+  search_data->callback = cb_persist(args[1]);
+  sp_search *search = sp_search_create(s->session_, query, 0, 10, 0, 5, 0, 3,
+                                       &SearchComplete, search_data);
   delete query;
-  if (!search) {
-    NS_THROW(Error, "libspotify internal error when requesting search");
-  }
+
+  if (!search)
+    THROW_EXCEPTION(Error, "libspotify internal error when requesting search");
 
   return Undefined();
 }
@@ -437,19 +437,21 @@ Handle<Value> Session::ConnectionStateGetter(Local<String> property, const Acces
   return scope.Close(Integer::New(connectionstate));
 }
 
-extern Handle<Object> *g_spotify_module;
-
 Handle<Value> Session::PlaylistContainerGetter(Local<String> property,
-                                               const AccessorInfo& info)
-{
+                                               const AccessorInfo& info) {
   HandleScope scope;
   Session* s = Unwrap<Session>(info.This());
-  if (!s->pc_)
-    s->pc_ = PlaylistContainer::New(sp_session_playlistcontainer(s->session_));
-  return scope.Close(s->pc_->handle_);
+
+  if (!s->playlist_container_) {
+    sp_playlistcontainer *pc = sp_session_playlistcontainer(s->session_);
+    s->playlist_container_ = PlaylistContainer::New(pc);
+  }
+
+  return scope.Close(s->playlist_container_->handle_);
 }
 
-Handle<Value> Session::UserGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Session::UserGetter(Local<String> property,
+                                  const AccessorInfo& info) {
   HandleScope scope;
   Session* s = Unwrap<Session>(info.This());
   sp_user* user = sp_session_user(s->session_);
@@ -457,9 +459,8 @@ Handle<Value> Session::UserGetter(Local<String> property, const AccessorInfo& in
   // The user property is exposed via a session object before the session
   // is connected/logged in, in which case the user object isn't initialized
   // and something weird has to be returned
-  if (!user) {
+  if (!user)
     return Undefined();
-  }
 
   return scope.Close(User::NewInstance(user));
 }
@@ -484,5 +485,5 @@ void Session::Initialize(Handle<Object> target) {
 
   target->Set(String::New("Session"), t->GetFunction());
 
-  logMessage_symbol = NODE_PSYMBOL("logMessage");
+  log_message_symbol = NODE_PSYMBOL("logMessage");
 }

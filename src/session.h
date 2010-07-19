@@ -34,10 +34,10 @@ class Session : public node::EventEmitter {
   ~Session();
 
   sp_session* session_;
-  pthread_t thread_id_;
+  pthread_t main_thread_id_;
   v8::Persistent<v8::Function> *logout_callback_;
   v8::Persistent<v8::Function> *login_callback_;
-  PlaylistContainer *pc_;
+  PlaylistContainer *playlist_container_;
 
   // Node-Spotify runloop glue
   ev_timer runloop_timer_;
