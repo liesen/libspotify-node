@@ -199,14 +199,17 @@ Handle<Value> Session::New(const Arguments& args) {
 
   sp_session_config config = {
     /* api_version */           SPOTIFY_API_VERSION,
-    /* cache_location */        ".cache",
-    /* settings_location */     ".settings",
-    /* application_key */       NULL,
+    /* cache_location */        NULL, // must be set and is below
+    /* settings_location */     NULL, // must be set and is below
+    /* application_key */       NULL, // optional but set below
     /* application_key_size */  0,
-    /* user_agent */            "node-spotify",
+    /* user_agent */            NULL, // must be set and is below
     /* callbacks */             &callbacks,
     /* userdata */              s,
   };
+
+  // appkey buffer
+  uint8_t *keybuf = NULL;
 
   if (args.Length() > 0) {
     if (!args[0]->IsObject())
@@ -219,20 +222,42 @@ Handle<Value> Session::New(const Arguments& args) {
       Local<Value> v = configuration->Get(String::New("applicationKey"));
       if (!v->IsArray()) NS_THROW(TypeError, "applicationKey must be an array of integers");
       Local<Array> a = Local<Array>::Cast(v);
-      uint8_t *keybuf = new uint8_t[a->Length()];
+      keybuf = new uint8_t[a->Length()];
       config.application_key_size = a->Length();
       for (int i = 0; i < a->Length(); i++) {
         keybuf[i] = a->Get(i)->Uint32Value();
       }
       config.application_key = keybuf;
-      // todo: save ref to keybuf so we can free it at dealloc
     }
 
     // userAgent
     if (configuration->Has(String::New("userAgent"))) {
       Handle<Value> v = configuration->Get(String::New("userAgent"));
       if (!v->IsString()) NS_THROW(TypeError, "userAgent must be a string");
-      config.user_agent = NSValueToUTF8(v); // todo: free this at dealloc
+      config.user_agent = NSValueToUTF8(v);
+    } else {
+      // we strdup so we can safely free at dealloc
+      config.user_agent = strdup("node-spotify");
+    }
+
+    // cacheLocation
+    if (configuration->Has(String::New("cacheLocation"))) {
+      Handle<Value> v = configuration->Get(String::New("cacheLocation"));
+      if (!v->IsString()) NS_THROW(TypeError, "cacheLocation must be a string");
+      config.cache_location = NSValueToUTF8(v);
+    } else {
+      // we strdup so we can safely free at dealloc
+      config.cache_location = strdup(".spotify-cache");
+    }
+
+    // settingsLocation
+    if (configuration->Has(String::New("settingsLocation"))) {
+      Handle<Value> v = configuration->Get(String::New("settingsLocation"));
+      if (!v->IsString()) NS_THROW(TypeError, "settingsLocation must be a string");
+      config.settings_location = NSValueToUTF8(v);
+    } else {
+      // we strdup so we can safely free at dealloc
+      config.settings_location = strdup(".spotify-settings");
     }
   }
 
@@ -257,6 +282,15 @@ Handle<Value> Session::New(const Arguments& args) {
 
   sp_session* session;
   sp_error error = sp_session_init(&config, &session);
+
+  // free temporary buffers in config
+  if (keybuf) delete keybuf;
+  #define F(_name_) if (config._name_) {\
+    delete config._name_; config._name_ = NULL; }
+  F(user_agent)
+  F(cache_location)
+  F(settings_location)
+  #undef F
 
   if (error != SP_ERROR_OK)
     NS_THROW(Error, sp_error_message(error));
