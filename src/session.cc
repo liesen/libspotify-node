@@ -417,7 +417,9 @@ Handle<Value> Session::Search(const Arguments& args) {
   search_data_t *search_data = new search_data_t;
   search_data->session = s;
   search_data->callback = cb_persist(args[1]);
-  sp_search *search = sp_search_create(s->session_, query, 0, 10, 0, 5, 0, 3,
+  sp_search *search = sp_search_create(s->session_, query, track_offset,
+                                       track_count, album_offset, album_count,
+                                       artist_offset, artist_count,
                                        &SearchComplete, search_data);
   delete query;
 
