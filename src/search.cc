@@ -1,5 +1,9 @@
 #include "search.h"
 #include "track.h"
+#include "album.h"
+#include "artist.h"
+
+#include <string.h>
 
 using namespace v8;
 using namespace node;
@@ -42,6 +46,28 @@ Handle<Value> SearchResult::TracksGetter(Local<String> property, const AccessorI
   return scope.Close(array);
 }
 
+Handle<Value> SearchResult::AlbumsGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  SearchResult* s = Unwrap<SearchResult>(info.This());
+  int count = sp_search_num_albums(s->search_);
+  Local<Array> array = Array::New(count);
+  for (int i = 0; i < count; i++) {
+    array->Set(Integer::New(i), Album::New(sp_search_album(s->search_, i)));
+  }
+  return scope.Close(array);
+}
+
+Handle<Value> SearchResult::ArtistsGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  SearchResult* s = Unwrap<SearchResult>(info.This());
+  int count = sp_search_num_artists(s->search_);
+  Local<Array> array = Array::New(count);
+  for (int i = 0; i < count; i++) {
+    array->Set(Integer::New(i), Artist::New(sp_search_artist(s->search_, i)));
+  }
+  return scope.Close(array);
+}
+
 Handle<Value> SearchResult::LoadedGetter(Local<String> property, const AccessorInfo& info) {
   HandleScope scope;
   SearchResult *p = Unwrap<SearchResult>(info.This());
@@ -61,15 +87,18 @@ Handle<Value> SearchResult::QueryGetter(Local<String> property, const AccessorIn
 Handle<Value> SearchResult::DidYouMeanGetter(Local<String> property, const AccessorInfo& info) {
   HandleScope scope;
   SearchResult *p = Unwrap<SearchResult>(info.This());
-  return p->search_
-    ? scope.Close(String::New(sp_search_did_you_mean(p->search_)))
-    : Undefined();
+  if (p->search_ && sp_search_is_loaded(p->search_)) {
+    const char *s = sp_search_did_you_mean(p->search_);
+    if (s && strlen(s) != 0)
+      return scope.Close(String::New(s));
+  }
+  Undefined();
 }
 
 Handle<Value> SearchResult::TotalTracksGetter(Local<String> property, const AccessorInfo& info) {
   HandleScope scope;
   SearchResult *p = Unwrap<SearchResult>(info.This());
-  return p->search_
+  return (p->search_ && sp_search_is_loaded(p->search_))
     ? scope.Close(Integer::New(sp_search_total_tracks(p->search_)))
     : Undefined();
 }
@@ -85,6 +114,8 @@ void SearchResult::Initialize(Handle<Object> target) {
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::NewSymbol("loaded"), LoadedGetter);
   instance_t->SetAccessor(String::NewSymbol("tracks"), TracksGetter);
+  instance_t->SetAccessor(String::NewSymbol("albums"), AlbumsGetter);
+  instance_t->SetAccessor(String::NewSymbol("aritsts"), ArtistsGetter);
   instance_t->SetAccessor(String::NewSymbol("totalTracks"), TotalTracksGetter);
   instance_t->SetAccessor(String::NewSymbol("query"), QueryGetter);
   instance_t->SetAccessor(String::NewSymbol("didYouMean"), DidYouMeanGetter);

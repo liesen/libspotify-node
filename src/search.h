@@ -17,6 +17,8 @@ public:
 
   static v8::Handle<v8::Value> LoadedGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> TracksGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> AlbumsGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> ArtistsGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> TotalTracksGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> QueryGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> DidYouMeanGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
