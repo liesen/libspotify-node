@@ -1,4 +1,5 @@
 #include "playlistcontainer.h"
+#include "playlist.h"
 
 #include <v8.h>
 #include <node.h>
@@ -19,8 +20,11 @@ static void PlaylistAdded(sp_playlistcontainer *pc,
                           void *userdata)
 {
   // this is called on the main thread
-  fprintf(stderr, "sp: playlist added, %d: %s\n", position, sp_playlist_name(playlist));
-  // Emit("playlist_added", 0, NULL);
+  // todo: keep refs to playlist objects? ...or maybe only emit if there are
+  // listeners? Creating all these playlists is probably hard work.
+  PlaylistContainer* p = static_cast<PlaylistContainer*>(userdata);
+  Handle<Value> argv[] = { Playlist::New(playlist), Integer::New(position) };
+  p->Emit(String::New("playlistAdded"), 2, argv);
 }
 
 static void PlaylistRemoved(sp_playlistcontainer *pc,
@@ -29,7 +33,11 @@ static void PlaylistRemoved(sp_playlistcontainer *pc,
                             void *userdata)
 {
   // this is called on the main thread
-  fprintf(stderr, "sp: playlist removed%d\n", position);
+  // todo: keep refs to playlist objects? ...or maybe only emit if there are
+  // listeners? Creating all these playlists is probably hard work.
+  PlaylistContainer* p = static_cast<PlaylistContainer*>(userdata);
+  Handle<Value> argv[] = { Playlist::New(playlist), Integer::New(position) };
+  p->Emit(String::New("playlistRemoved"), 2, argv);
 }
 
 static void PlaylistContainerLoaded(sp_playlistcontainer* pc, void* userdata) {
@@ -72,19 +80,6 @@ Handle<Value> PlaylistContainer::New(const Arguments& args) {
       : NULL );
   pc->Wrap(args.This());
   return args.This();
-}
-
-Handle<Value> PlaylistContainer::StartLoading(const Arguments& args) {
-  PlaylistContainer* pc = Unwrap<PlaylistContainer>(args.This());
-  sp_playlistcontainer_callbacks callbacks = {
-    PlaylistAdded,
-    PlaylistRemoved,
-    NULL,
-    PlaylistContainerLoaded 
-  };
-
-  sp_playlistcontainer_add_callbacks(pc->playlist_container_, &callbacks, pc);
-  return Undefined();
 }
 
 Handle<Value> PlaylistContainer::LengthGetter(Local<String> property,
@@ -139,8 +134,6 @@ void PlaylistContainer::Initialize(Handle<Object> target) {
   constructor_template = Persistent<FunctionTemplate>::New(t);
   constructor_template->SetClassName(String::NewSymbol("PlaylistContainer"));
   constructor_template->Inherit(EventEmitter::constructor_template);
-
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "startLoading", StartLoading);
 
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);

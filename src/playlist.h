@@ -12,25 +12,22 @@ using namespace node;
 
 class Playlist : public ObjectWrap {
  public:
-  static Handle<Value> New(sp_playlist* playlist);
+  static void Initialize(v8::Handle<v8::Object> target);
+  
+  Playlist(sp_playlist* playlist) : playlist_(playlist) {}
+  
+  static Handle<Value> New(const Arguments& args);
+  static Handle<Value> New(sp_playlist *playlist);
 
- protected:
-  Playlist(sp_playlist* playlist) : playlist_(playlist) {
-  }
-
-  static Handle<Value> IsLoaded(Local<String> property, 
-                                const AccessorInfo& info);
-
+  static Handle<Value> IsLoaded(Local<String> property, const AccessorInfo& info);
   static Handle<Value> Name(Local<String> property, const AccessorInfo& info);
-
   static Handle<Value> Owner(Local<String> property, const AccessorInfo& info);
-
   static Handle<Value> CollaborativeGetter(Local<String> property,
                                            const AccessorInfo& info);
 
  private:
   sp_playlist* playlist_;
- 
+  static v8::Persistent<v8::FunctionTemplate> constructor_template;
 };
 
 #endif
