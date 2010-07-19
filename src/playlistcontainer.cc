@@ -12,7 +12,6 @@ static void PlaylistAdded(sp_playlistcontainer *pc,
                           void *userdata)
 {
   HandleScope scope;
-
   // this is called on the main thread
   PlaylistContainer* p = static_cast<PlaylistContainer*>(userdata);
 
@@ -114,7 +113,7 @@ Handle<Value> PlaylistContainer::New(const Arguments& args) {
   HandleScope scope;
   PlaylistContainer* pc = new PlaylistContainer(
     args.Length() > 0 && args[0]->IsExternal()
-      ? reinterpret_cast<sp_playlistcontainer *>(External::Unwrap(args[0]))
+      ? ObjectWrap::Unwrap<sp_playlistcontainer>(args[0]->ToObject())
       : NULL);
   pc->Wrap(args.This());
   return args.This();
@@ -154,17 +153,17 @@ Handle<Boolean> PlaylistContainer::PlaylistQuery(uint32_t index,
                                                  const AccessorInfo& info) {
   HandleScope scope;
   PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
-  return scope.Close(Boolean::New(
-    index < sp_playlistcontainer_num_playlists(pc->playlist_container_)));
+  int num_playlists = pc->num_playlists();
+  return scope.Close(Boolean::New(index < num_playlists));
 }
 
 Handle<Array> PlaylistContainer::PlaylistEnumerator(const AccessorInfo& info) {
   HandleScope scope;
   PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
-  int count = sp_playlistcontainer_num_playlists(pc->playlist_container_);
-  Local<Array> playlists = Array::New(count);
+  int num_playlists = pc->num_playlists();
+  Local<Array> playlists = Array::New(num_playlists);
 
-  for (int i = 0; i < count; i++) {
+  for (int i = 0; i < num_playlists; i++) {
     sp_playlist* playlist = sp_playlistcontainer_playlist(
         pc->playlist_container_, i);
     playlists->Set(i, Playlist::New(playlist));
@@ -225,5 +224,9 @@ void PlaylistContainer::Initialize(Handle<Object> target) {
                                         PlaylistEnumerator);
 
   target->Set(String::New("PlaylistContainer"),
-    constructor_template->GetFunction());
+              constructor_template->GetFunction());
+}
+
+int PlaylistContainer::num_playlists() {
+  return sp_playlistcontainer_num_playlists(playlist_container_);
 }

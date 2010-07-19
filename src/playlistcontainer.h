@@ -12,7 +12,6 @@ typedef struct create_callback_entry {
 TAILQ_HEAD(create_callback_queue, create_callback_entry);
 typedef struct create_callback_queue create_callback_queue_t;
 
-
 class PlaylistContainer : public node::EventEmitter {
  public:
   explicit PlaylistContainer(sp_playlistcontainer* playlist_container);
@@ -41,6 +40,8 @@ class PlaylistContainer : public node::EventEmitter {
 
   sp_playlistcontainer* playlist_container_;
   create_callback_queue_t create_callback_queue_;
+
+  int num_playlists();
 
   static v8::Persistent<v8::FunctionTemplate> constructor_template;
 };
