@@ -181,10 +181,10 @@ static void SearchComplete(sp_search *search, void *userdata) {
 
 Session::Session(sp_session* session)
     : session_(session)
-    , thread_id_((pthread_t) -1)
+    , main_thread_id_((pthread_t) -1)
     , login_callback_(NULL)
     , logout_callback_(NULL)
-    , pc_(NULL)
+    , playlist_container_(NULL)
 {
   memset((void*)&this->log_messages_q_, 0, sizeof(nt_atomic_queue));
 }
