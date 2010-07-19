@@ -23,6 +23,7 @@ Track::~Track() {
 }
 
 Handle<Value> Track::New(sp_track *track) {
+  HandleScope scope;
   Local<Object> instance = constructor_template->GetFunction()->NewInstance(0, NULL);
   Track *p = ObjectWrap::Unwrap<Track>(instance);
   p->track_ = track;
@@ -35,6 +36,7 @@ Handle<Value> Track::New(sp_track *track) {
 }
 
 Handle<Value> Track::New(const Arguments& args) {
+  HandleScope scope;
   // todo: if called with a string argument, try to parse and load it as a link
   (new Track(NULL))->Wrap(args.This());
   return args.This();
@@ -79,7 +81,9 @@ bool Track::SetupBackingTrack() {
 Handle<Value> Track::LoadedGetter(Local<String> property, const AccessorInfo& info) {
   HandleScope scope;
   Track *p = Unwrap<Track>(info.This());
-  return scope.Close(Boolean::New(sp_track_is_loaded(p->track_)));
+  return p->track_
+    ? scope.Close(Boolean::New(sp_track_is_loaded(p->track_)))
+    : Undefined();
 }
 
 void Track::Initialize(Handle<Object> target) {
@@ -92,6 +96,7 @@ void Track::Initialize(Handle<Object> target) {
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::New("loaded"), LoadedGetter);
+  //instance_t->SetAccessor(String::New("album"), AlbumGetter);
 
   target->Set(String::New("Track"), constructor_template->GetFunction());
 }
