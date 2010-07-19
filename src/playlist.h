@@ -19,7 +19,8 @@ class Playlist : public node::EventEmitter {
   static Handle<Value> New(const Arguments& args);
   static Handle<Value> New(sp_playlist *playlist);
 
-  static Handle<Value> IsLoaded(Local<String> property, const AccessorInfo& info);
+  static Handle<Value> LoadedGetter(Local<String> property, const AccessorInfo& info);
+  static Handle<Value> URIGetter(Local<String> property, const AccessorInfo& info);
   static Handle<Value> Name(Local<String> property, const AccessorInfo& info);
   static Handle<Value> Owner(Local<String> property, const AccessorInfo& info);
   static Handle<Value> CollaborativeGetter(Local<String> property,

@@ -103,6 +103,27 @@ Handle<Value> SearchResult::TotalTracksGetter(Local<String> property, const Acce
     : Undefined();
 }
 
+Handle<Value> SearchResult::URIGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  SearchResult *p = Unwrap<SearchResult>(info.This());
+  if (!p->search_ || !sp_search_is_loaded(p->search_))
+    return Undefined();
+  int buflen = sizeof("spotify:search:")
+    + strlen(sp_search_query(p->search_))
+    + 2;
+  char *buf = new char[buflen];
+  sp_link *link = sp_link_create_from_search(p->search_);
+  if (!link) {
+    delete buf;
+    return Undefined();
+  }
+  sp_link_as_string(link, buf, buflen);
+  sp_link_release(link);
+  Local<String> s = String::New(buf);
+  delete buf;
+  return scope.Close(s);
+}
+
 void SearchResult::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
@@ -119,6 +140,7 @@ void SearchResult::Initialize(Handle<Object> target) {
   instance_t->SetAccessor(String::NewSymbol("totalTracks"), TotalTracksGetter);
   instance_t->SetAccessor(String::NewSymbol("query"), QueryGetter);
   instance_t->SetAccessor(String::NewSymbol("didYouMean"), DidYouMeanGetter);
+  instance_t->SetAccessor(String::NewSymbol("uri"), URIGetter);
 
   target->Set(String::New("SearchResult"), constructor_template->GetFunction());
 }

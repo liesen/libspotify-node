@@ -8,7 +8,10 @@ session.login(account.username, account.password, function (err) {
   if (err) return sys.error(err.stack || err);
   sys.puts('logged in as: ' + session.user.displayName);
   session.playlists.addListener('playlistAdded', function(playlist, position){
-    sys.puts("playlist added at "+position+". "+sys.inspect(playlist))
+    sys.puts("playlist added at "+position)
+    playlist.addListener('updated', function(){
+      sys.puts("playlist loaded: "+sys.inspect(this));
+    })
     playlist.addListener('tracksAdded', function(count, position){
       sys.puts(count+" tracks added at "+position);
     })
@@ -19,6 +22,8 @@ session.login(account.username, account.password, function (err) {
   session.playlists.addListener('load', function(){
     sys.puts(this.length+' playlists loaded');
     //sys.puts(sys.inspect(this))
-    session.logout(function(){ sys.puts('!!! logged_out'); });
+    //setTimeout(function(){
+      session.logout(function(){ sys.puts('!!! logged_out'); });
+    //}, 10000);
   })
 });

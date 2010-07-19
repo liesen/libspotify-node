@@ -127,10 +127,24 @@ Handle<Value> Playlist::New(const Arguments& args) {
   return args.This();
 }
 
-Handle<Value> Playlist::IsLoaded(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Playlist::LoadedGetter(Local<String> property, const AccessorInfo& info) {
   HandleScope scope;
   sp_playlist* playlist = ObjectWrap::Unwrap<Playlist>(info.This())->playlist_;
   return scope.Close(Boolean::New(sp_playlist_is_loaded(playlist)));
+}
+
+Handle<Value> Playlist::URIGetter(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  Playlist *p = Unwrap<Playlist>(info.This());
+  if (!p->playlist_ || !sp_playlist_is_loaded(p->playlist_))
+    return Undefined();
+  char buf[500]; // probably enough
+  sp_link *link = sp_link_create_from_playlist(p->playlist_);
+  if (!link)
+    return Undefined();
+  sp_link_as_string(link, buf, sizeof(buf));
+  sp_link_release(link);
+  return scope.Close(String::New(buf));
 }
 
 void Playlist::Initialize(Handle<Object> target) {
@@ -142,7 +156,8 @@ void Playlist::Initialize(Handle<Object> target) {
   
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
-  instance_t->SetAccessor(String::NewSymbol("isLoaded"), IsLoaded);
+  instance_t->SetAccessor(String::NewSymbol("loaded"), LoadedGetter);
+  instance_t->SetAccessor(String::NewSymbol("uri"), URIGetter);
   /*instance_t->SetAccessor(NODE_PSYMBOL("length"), LengthGetter);
   instance_t->SetIndexedPropertyHandler(TrackGetter,
                                         TrackSetter,

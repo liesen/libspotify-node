@@ -22,6 +22,7 @@ public:
   static v8::Handle<v8::Value> TotalTracksGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> QueryGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> DidYouMeanGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> URIGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
 protected:
   sp_search* search_;
 };
