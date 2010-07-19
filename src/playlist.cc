@@ -16,6 +16,7 @@ Persistent<FunctionTemplate> Playlist::constructor_template;
 static const char *_PlaylistURI(sp_playlist *pl) {
   static char uri_buf[256];
   sp_link *link = sp_link_create_from_playlist(pl);
+  if (!link) return "?";
   sp_link_as_string(link, uri_buf, sizeof(uri_buf));
   sp_link_release(link);
   return uri_buf;
@@ -78,10 +79,8 @@ static void PlaylistStateChanged(sp_playlist *playlist, void *userdata) {
 
 static void PlaylistUpdateInProgress(sp_playlist *playlist, bool done, void *userdata) {
   // called on the main thread
-  // note: trying to call sp_link_create_from_playlist on the playlist causes
-  //       segfault if done == false.
   //printf("[%s] updateInProgress -- done: %s\n",
-  //  done ? _PlaylistURI(pl) : "???", done ? "true" : "false");
+  //  _PlaylistURI(playlist), done ? "true" : "false");
   Playlist* pl = static_cast<Playlist*>(userdata);
   pl->Emit(String::New(done ? "updated" : "updating"), 0, NULL);
 }
