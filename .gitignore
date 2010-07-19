@@ -5,6 +5,7 @@ src/spojs
 .lock-wscript
 test*-private.js
 account.js
-/.cache
+/.spotify-cache
+/.spotify-settings
 *.swp
 *.node

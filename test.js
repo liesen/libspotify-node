@@ -4,9 +4,8 @@ var sys = require('sys'),
 
 sys.puts('spotify api version: ' + spotify.version);
 
-var config = { 
+var config = {
   applicationKey: account.applicationKey,
-  cacheLocation: '.cache'
 };
 
 var session = new spotify.Session(config);
