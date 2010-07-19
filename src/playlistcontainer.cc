@@ -29,10 +29,24 @@ static void PlaylistAdded(sp_playlistcontainer *pc,
                           int position,
                           void *userdata)
 {
+  HandleScope scope;
+
   // this is called on the main thread
-  // todo: keep refs to playlist objects? ...or maybe only emit if there are
-  // listeners? Creating all these playlists is probably hard work.
   PlaylistContainer* p = static_cast<PlaylistContainer*>(userdata);
+
+  // First, trigger any queued callback from Create
+  create_callback_entry_t *entry;
+  TAILQ_FOREACH(entry, &p->create_callback_queue_, link) {
+		if (entry->playlist == playlist) {
+      Local<Value> argv[] = { (*Undefined()), (*Playlist::New(playlist)) };
+      (*entry->callback)->Call(p->handle_, 2, argv);
+      sp_playlist_release(entry->playlist);
+      cb_destroy(entry->callback);
+      TAILQ_REMOVE(&p->create_callback_queue_, entry, link);
+      delete entry;
+		}
+	}
+
   Handle<Value> argv[] = { Playlist::New(playlist), Integer::New(position) };
   p->Emit(String::New("playlistAdded"), 2, argv);
 }
@@ -87,6 +101,19 @@ PlaylistContainer::PlaylistContainer(sp_playlistcontainer* playlist_container)
   : EventEmitter(), playlist_container_(playlist_container) {
   if (this->playlist_container_)
     sp_playlistcontainer_add_callbacks(this->playlist_container_, &callbacks, this);
+  TAILQ_INIT(&create_callback_queue_);
+}
+
+PlaylistContainer::~PlaylistContainer() {
+  // Clear the create_callback_queue_
+  create_callback_entry_t *entry;
+  TAILQ_FOREACH(entry, &create_callback_queue_, link) {
+    Local<Value> argv[] = { Exception::Error(String::New("aborted")) };
+    (*entry->callback)->Call(handle_, 1, argv);
+    sp_playlist_release(entry->playlist);
+    cb_destroy(entry->callback);
+    delete entry;
+	}
 }
 
 Handle<Value> PlaylistContainer::New(sp_playlistcontainer *playlist_container) {
@@ -112,8 +139,8 @@ Handle<Value> PlaylistContainer::LengthGetter(Local<String> property,
                                               const AccessorInfo& info) {
   HandleScope scope;
   PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
-  int num_playlists = pc->num_playlists();
-  return scope.Close(Integer::New(num_playlists));
+  return scope.Close(Integer::New(
+    sp_playlistcontainer_num_playlists(pc->playlist_container_)));
 }
 
 Handle<Value> PlaylistContainer::PlaylistGetter(uint32_t index, const AccessorInfo& info) {
@@ -141,17 +168,17 @@ Handle<Boolean> PlaylistContainer::PlaylistQuery(uint32_t index,
                                                  const AccessorInfo& info) {
   HandleScope scope;
   PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
-  int num_playlists = pc->num_playlists(); 
-  return scope.Close(Boolean::New(index < num_playlists));
+  return scope.Close(Boolean::New(
+    index < sp_playlistcontainer_num_playlists(pc->playlist_container_)));
 }
 
 Handle<Array> PlaylistContainer::PlaylistEnumerator(const AccessorInfo& info) {
   HandleScope scope;
   PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
-  int num_playlists = pc->num_playlists(); 
-  Local<Array> playlists = Array::New(num_playlists);
+  int count = sp_playlistcontainer_num_playlists(pc->playlist_container_);
+  Local<Array> playlists = Array::New(count);
 
-  for (int i = 0; i < num_playlists; i++) {
+  for (int i = 0; i < count; i++) {
     sp_playlist* playlist = sp_playlistcontainer_playlist(
         pc->playlist_container_, i);
     playlists->Set(i, Playlist::New(playlist));
@@ -163,9 +190,12 @@ Handle<Array> PlaylistContainer::PlaylistEnumerator(const AccessorInfo& info) {
 Handle<Value> PlaylistContainer::Create(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() != 1) THROW_EXCEPTION(TypeError, "search takes exactly 1 argument");
-  if (!args[0]->IsString()) THROW_EXCEPTION(TypeError, "first argument must be a string");
-  //if (!args[1]->IsFunction()) THROW_EXCEPTION(TypeError, "last argument must be a function");
+  if (args.Length() < 1)
+    THROW_EXCEPTION(TypeError, "search takes at least 1 argument");
+  if (!args[0]->IsString())
+    THROW_EXCEPTION(TypeError, "first argument must be a string");
+  if (args.Length() > 1 && !args[1]->IsFunction())
+    THROW_EXCEPTION(TypeError, "last argument must be a function");
 
   PlaylistContainer* s = Unwrap<PlaylistContainer>(args.This());
 
@@ -179,6 +209,15 @@ Handle<Value> PlaylistContainer::Create(const Arguments& args) {
 
   if (!playlist)
     THROW_EXCEPTION(Error, "failed to create new playlist");
+
+  // queue callback
+  if (args.Length() > 1) {
+    create_callback_entry_t *entry = new create_callback_entry_t;
+    entry->playlist = playlist;
+    sp_playlist_add_ref(entry->playlist);
+    entry->callback = cb_persist(args[1]);
+    TAILQ_INSERT_TAIL(&s->create_callback_queue_, entry, link);
+  }
 
   return scope.Close(Playlist::New(playlist));
 }
@@ -202,8 +241,4 @@ void PlaylistContainer::Initialize(Handle<Object> target) {
                                         PlaylistEnumerator);
 
   target->Set(String::New("PlaylistContainer"), constructor_template->GetFunction());
-}
-
-int PlaylistContainer::num_playlists() {
-  return sp_playlistcontainer_num_playlists(playlist_container_);
 }
