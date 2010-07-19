@@ -1,0 +1,20 @@
+#ifndef SPOTIFY_STUB_H_
+#define SPOTIFY_STUB_H_
+
+#include <v8.h>
+#include <node.h>
+#include <node_events.h>
+#include <libspotify/api.h>
+
+class Stub : public node::EventEmitter {
+public:
+  static v8::Persistent<v8::FunctionTemplate> constructor_template;
+  static void Initialize(v8::Handle<v8::Object> target);
+  Stub(void* userdata);
+  static v8::Handle<v8::Value> New(const v8::Arguments& args);
+  static v8::Handle<v8::Value> New(void *userdata);
+protected:
+  void* userdata_;
+};
+
+#endif
