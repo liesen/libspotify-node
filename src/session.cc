@@ -492,7 +492,7 @@ void Session::Initialize(Handle<Object> target) {
   Local<ObjectTemplate> instance_t = t->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::New("user"), UserGetter);
-  instance_t->SetAccessor(String::New("connectionState"),
+  instance_t->SetAccessor(String::New("_connectionState"),
                           ConnectionStateGetter);
   instance_t->SetAccessor(String::New("playlists"), PlaylistContainerGetter);
 

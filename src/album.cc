@@ -55,22 +55,10 @@ void Album::SetupBackingAlbum() {
   
   handle_->Set(String::New("name"), String::New(sp_album_name(album_)));
   handle_->Set(String::New("year"), Integer::New(sp_album_year(album_)));
-  // todo: symbolize type constants
-  Handle<String> type;
-  switch (sp_album_type(album_)) {
-    case SP_ALBUMTYPE_ALBUM:
-      handle_->Set(String::New("type"), String::NewSymbol("album"));
-      break;
-    case SP_ALBUMTYPE_SINGLE:
-      handle_->Set(String::New("type"), String::NewSymbol("single"));
-      break;
-    case SP_ALBUMTYPE_COMPILATION:
-      handle_->Set(String::New("type"), String::NewSymbol("compilation"));
-      break;
-  }
-  // intentional: do not set "type" property for unknown types.
-
-  // todo: lazy getter for artist
+  // Type is only available when browsing albums, so e.g. will be
+  // SP_ALBUMTYPE_UNKNOWN for search results. There's a "type" getter defined
+  // in index.js which returns a string rep, based on this value.
+  handle_->Set(String::New("_type"), Integer::New(sp_album_type(album_)));
 }
 
 Handle<Value> Album::LoadedGetter(Local<String> property, const AccessorInfo& info) {
