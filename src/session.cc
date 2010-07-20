@@ -1,6 +1,7 @@
 #include "session.h"
 #include "user.h"
 #include "search.h"
+#include "track.h"
 
 #include <pthread.h>
 #include <signal.h>
@@ -126,6 +127,7 @@ static void MetadataUpdated(sp_session *session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
   assert(s->main_thread_id_ == pthread_self() /* or we will crash */);
   s->Emit(String::New("metadataUpdated"), 0, NULL);
+  s->metadata_update_queue_.process(s->handle_);
 }
 
 static void ConnectionError(sp_session* session, sp_error error) {
@@ -414,6 +416,40 @@ Handle<Value> Session::Search(const Arguments& args) {
   return Undefined();
 }
 
+// .getTrackByLink( link [, callback(err, track)] ) -> Track
+Handle<Value> Session::GetTrackByLink(const Arguments& args) {
+  HandleScope scope;
+
+  if (args.Length() < 1)
+    return JS_THROW(TypeError, "search takes at least one argument");
+  if (args.Length() > 1 && !args[1]->IsFunction())
+    return JS_THROW(TypeError, "last argument must be a function");
+
+  String::Utf8Value linkstr(args[0]);
+  sp_link *link = sp_link_create_from_string(*linkstr);
+  if (!link)
+    return JS_THROW(TypeError, "invalid track link");
+  sp_track *t = sp_link_as_track(link);
+  if (!t)
+    return JS_THROW(Error, "failed to initialize track object from link");
+
+  Handle<Value> track = Track::New(t);
+
+  // "load" callback?
+  if (args.Length() > 1) {
+    Session* s = Unwrap<Session>(args.This());
+    if (!sp_track_is_loaded(t)) {
+      // todo: pass Handle<Value> instead of sp_track*
+      s->metadata_update_queue_.push(args[1], t);
+    } else {
+      Handle<Value> argv[] = { Undefined(), track };
+      Function::Cast(*args[1])->Call(s->handle_, 2, argv);
+    }
+  }
+
+  return scope.Close(track);
+}
+
 // ---------
 // Properties
 
@@ -467,6 +503,7 @@ void Session::Initialize(Handle<Object> target) {
   NODE_SET_PROTOTYPE_METHOD(t, "logout", Logout);
   NODE_SET_PROTOTYPE_METHOD(t, "login", Login);
   NODE_SET_PROTOTYPE_METHOD(t, "search", Search);
+  NODE_SET_PROTOTYPE_METHOD(t, "getTrackByLink", GetTrackByLink);
 
   Local<ObjectTemplate> instance_t = t->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);

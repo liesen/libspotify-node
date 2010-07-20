@@ -3,6 +3,7 @@
 
 #include "index.h"
 #include "atomic_queue.h"
+#include "callback_queue.h"
 #include "playlistcontainer.h"
 
 class Session : public node::EventEmitter {
@@ -13,6 +14,7 @@ class Session : public node::EventEmitter {
   static v8::Handle<v8::Value> Login(const v8::Arguments& args);
   static v8::Handle<v8::Value> Logout(const v8::Arguments& args);
   static v8::Handle<v8::Value> Search(const v8::Arguments& args);
+  static v8::Handle<v8::Value> GetTrackByLink(const v8::Arguments& args);
   static v8::Handle<v8::Value> ConnectionStateGetter(
       v8::Local<v8::String> property,
       const v8::AccessorInfo& info);
@@ -40,8 +42,14 @@ class Session : public node::EventEmitter {
   ev_async runloop_async_;
 
   // Spotify background thread-to-node-main glue
-  ev_async logmsg_async_;
-  nt_atomic_queue log_messages_q_;
+  ev_async  logmsg_async_;
+
+  // log messages delivered from a background thread
+  nt_atomic_queue  log_messages_q_;
+
+  // queued callbacks waiting for metadata_update events for particular objects
+  CallbackQueue  metadata_update_queue_;
+
   void DequeueLogMessages();
 };
 
