@@ -421,27 +421,44 @@ Handle<Value> Session::GetTrackByLink(const Arguments& args) {
   HandleScope scope;
 
   if (args.Length() < 1)
-    return JS_THROW(TypeError, "search takes at least one argument");
-  if (args.Length() > 1 && !args[1]->IsFunction())
-    return JS_THROW(TypeError, "last argument must be a function");
+    return JS_THROW(TypeError, "getTrackByLink takes at least one argument");
+  if (args.Length() > 1) {
+    if (!args[1]->IsFunction())
+      return JS_THROW(TypeError, "last argument must be a function");
+  }
 
+  Session* s = Unwrap<Session>(args.This());
   String::Utf8Value linkstr(args[0]);
-  sp_link *link = sp_link_create_from_string(*linkstr);
-  if (!link)
-    return JS_THROW(TypeError, "invalid track link");
-  sp_track *t = sp_link_as_track(link);
-  if (!t)
-    return JS_THROW(Error, "failed to initialize track object from link");
 
+  // derive sp_link from string
+  sp_link *link = sp_link_create_from_string(*linkstr);
+  if (!link) {
+    return CallbackOrThrowError(s->handle_, args[1], "invalid link");
+  }
+
+  // derive sp_track from sp_link
+  sp_track *t = sp_link_as_track(link);
+  if (!t) {
+    return CallbackOrThrowError(s->handle_, args[1], "not a track link");
+  }
+
+  // check status
+  sp_error status = sp_track_error(t);
+  if (status != SP_ERROR_IS_LOADING && status != SP_ERROR_OK) {
+    return CallbackOrThrowError(s->handle_, args[1], status);
+  }
+
+  // create Track object
   Handle<Value> track = Track::New(t);
 
-  // "load" callback?
+  // "loaded" callback
   if (args.Length() > 1) {
-    Session* s = Unwrap<Session>(args.This());
-    if (!sp_track_is_loaded(t)) {
+    if (status == SP_ERROR_IS_LOADING) {
+      // pending
       // todo: pass Handle<Value> instead of sp_track*
       s->metadata_update_queue_.push(args[1], t);
-    } else {
+    } else if (status == SP_ERROR_OK) {
+      // loaded
       Handle<Value> argv[] = { Undefined(), track };
       Function::Cast(*args[1])->Call(s->handle_, 2, argv);
     }
