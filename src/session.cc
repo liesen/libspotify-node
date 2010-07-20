@@ -39,18 +39,18 @@ static void NotifyMainThread(sp_session* session) {
   // query sp_session_process_events, which is handled by
   // Session::ProcessEvents. ev_async_send queues a call on the main ev runloop.
   Session* s = static_cast<Session*>(sp_session_userdata(session));
-  ev_async_send(EV_DEFAULT_UC_ &s->runloop_async_);
+  ev_async_send(EV_DEFAULT_UC_ static_cast<ev_async*>(&s->runloop_async_));
 }
 
 void Session::ProcessEvents() {
   int timeout = 0;
-  ev_timer_stop(EV_DEFAULT_UC_ &this->runloop_timer_);
+  ev_timer_stop(EV_DEFAULT_UC_ static_cast<ev_timer*>(&runloop_timer_));
 
-  if (this->session_)
-    sp_session_process_events(this->session_, &timeout);
+  if (session_)
+    sp_session_process_events(session_, &timeout);
 
-  ev_timer_set(&this->runloop_timer_, timeout / 1000.0, 0.0);
-  ev_timer_start(EV_DEFAULT_UC_ &this->runloop_timer_);
+  ev_timer_set(static_cast<ev_timer*>(&runloop_timer_), timeout / 1000.0, 0.0);
+  ev_timer_start(EV_DEFAULT_UC_ static_cast<ev_timer*>(&runloop_timer_));
 }
 
 void Session::DequeueLogMessages() {
@@ -80,8 +80,9 @@ static void LogMessage(sp_session* session, const char* data) {
     log_message_t *msg = new log_message_t;
     msg->message = (const char *)strdup(data);
     nt_atomic_enqueue(&s->log_messages_q_, msg, offsetof(log_message_t, next));
-    // Signal we need to dequeue the message queue: SpotifyRunloopAsyncLogMessage
-    ev_async_send(EV_DEFAULT_UC_ &s->logmsg_async_);
+    // Signal we need to dequeue the message queue (handled by
+    // SpotifyRunloopAsyncLogMessage).
+    ev_async_send(EV_DEFAULT_UC_ static_cast<ev_async*>(&s->logmsg_async_));
   }
 }
 
@@ -111,7 +112,8 @@ static void LoggedIn(sp_session* session, sp_error error) {
   assert((*s->login_callback_)->IsFunction());
   assert(s->main_thread_id_ == pthread_self() /* or we will crash */);
   if (error != SP_ERROR_OK) {
-    Local<Value> argv[] = { Exception::Error(String::New(sp_error_message(error))) };
+    Local<Value> argv[] = {
+      Exception::Error(String::New(sp_error_message(error))) };
     (*s->login_callback_)->Call(s->handle_, 1, argv);
   } else {
     (*s->login_callback_)->Call(s->handle_, 0, NULL);
@@ -166,12 +168,12 @@ Session::Session(sp_session* session)
     , logout_callback_(NULL)
     , playlist_container_(NULL)
 {
-  memset((void*)&this->log_messages_q_, 0, sizeof(nt_atomic_queue));
+  nt_atomic_queue_init(&log_messages_q_);
 }
 
 Session::~Session() {
-  ev_timer_stop(EV_DEFAULT_UC_ &this->runloop_timer_);
-  ev_async_stop(EV_DEFAULT_UC_ &this->runloop_async_);
+  ev_timer_stop(EV_DEFAULT_UC_ static_cast<ev_timer*>(&runloop_timer_));
+  ev_async_stop(EV_DEFAULT_UC_ static_cast<ev_async*>(&runloop_async_));
   this->DequeueLogMessages();
 
   if (playlist_container_) {
@@ -229,7 +231,10 @@ Handle<Value> Session::New(const Arguments& args) {
     // applicationKey
     if (configuration->Has(String::New("applicationKey"))) {
       Local<Value> v = configuration->Get(String::New("applicationKey"));
-      if (!v->IsArray()) return JS_THROW(TypeError, "applicationKey must be an array of integers");
+      if (!v->IsArray()) {
+        return JS_THROW(TypeError,
+                        "applicationKey must be an array of integers");
+      }
       Local<Array> a = Local<Array>::Cast(v);
       application_key = new uint8_t[a->Length()];
       config.application_key_size = a->Length();
@@ -265,21 +270,24 @@ Handle<Value> Session::New(const Arguments& args) {
 
   // ev_async for libspotify background thread to invoke processing on main
   s->runloop_async_.data = s;
-  ev_async_init(&s->runloop_async_, SpotifyRunloopAsyncProcess);
-  ev_async_start(EV_DEFAULT_UC_ &s->runloop_async_);
+  ev_async_init(static_cast<ev_async*>(&s->runloop_async_),
+    SpotifyRunloopAsyncProcess);
+  ev_async_start(EV_DEFAULT_UC_ static_cast<ev_async*>(&s->runloop_async_));
   ev_unref(EV_DEFAULT_UC); // don't let a lingering async ev keep the main loop
 
   // ev_timer for triggering libspotify periodic processing
   s->runloop_timer_.data = s;
-  ev_timer_init(&s->runloop_timer_, SpotifyRunloopTimerProcess, 60.0, 0.0);
+  ev_timer_init(static_cast<ev_timer*>(&s->runloop_timer_),
+    SpotifyRunloopTimerProcess, 60.0, 0.0);
   ev_unref(EV_DEFAULT_UC);
   // Note: No need to start the timer as it's started by first invocation after
   // NotifyMainThread
 
   // ev_async for libspotify background thread to emit log message on main
   s->logmsg_async_.data = s;
-  ev_async_init(&s->logmsg_async_, SpotifyRunloopAsyncLogMessage);
-  ev_async_start(EV_DEFAULT_UC_ &s->logmsg_async_);
+  ev_async_init(static_cast<ev_async*>(&s->logmsg_async_),
+    SpotifyRunloopAsyncLogMessage);
+  ev_async_start(EV_DEFAULT_UC_ static_cast<ev_async*>(&s->logmsg_async_));
   ev_unref(EV_DEFAULT_UC); // don't let a lingering async ev keep the main loop
 
   sp_session* session;
@@ -297,10 +305,14 @@ Handle<Value> Session::New(const Arguments& args) {
 Handle<Value> Session::Login(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() != 3) return JS_THROW(TypeError, "login takes exactly 3 arguments");
-  if (!args[0]->IsString()) return JS_THROW(TypeError, "first argument must be a string");
-  if (!args[1]->IsString()) return JS_THROW(TypeError, "second argument must be a string");
-  if (!args[2]->IsFunction()) return JS_THROW(TypeError, "last argument must be a function");
+  if (args.Length() != 3)
+    return JS_THROW(TypeError, "login takes exactly 3 arguments");
+  if (!args[0]->IsString())
+    return JS_THROW(TypeError, "first argument must be a string");
+  if (!args[1]->IsString())
+    return JS_THROW(TypeError, "second argument must be a string");
+  if (!args[2]->IsFunction())
+    return JS_THROW(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
 
@@ -339,10 +351,12 @@ Handle<Value> Session::Logout(const Arguments& args) {
 
 Handle<Value> Session::Search(const Arguments& args) {
   HandleScope scope;
-  if (args.Length() != 2) return JS_THROW(TypeError, "search takes exactly 2 arguments");
+  if (args.Length() != 2)
+    return JS_THROW(TypeError, "search takes exactly 2 arguments");
   if (!args[0]->IsString() && !args[0]->IsObject())
     return JS_THROW(TypeError, "first argument must be a string or an object");
-  if (!args[1]->IsFunction()) return JS_THROW(TypeError, "last argument must be a function");
+  if (!args[1]->IsFunction())
+    return JS_THROW(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
   const int kDefaultTrackOffset = 0;
@@ -403,7 +417,8 @@ Handle<Value> Session::Search(const Arguments& args) {
 // ---------
 // Properties
 
-Handle<Value> Session::ConnectionStateGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Session::ConnectionStateGetter(Local<String> property,
+                                             const AccessorInfo& info) {
   HandleScope scope;
   Session* s = Unwrap<Session>(info.This());
   int connectionstate = sp_session_connectionstate(s->session_);

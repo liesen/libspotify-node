@@ -36,7 +36,15 @@ def configure(conf):
   conf.env.append_value('LINKFLAGS', [os.getcwdu()+'/src/atomic_queue.o'])
 
 def lint(ctx):
-  Utils.exec_command('python cpplint.py --filter=-legal/copyright,-build/header_guard src/*.cc src/*.h')
+  Utils.exec_command('python cpplint.py --verbose=0 --filter='+
+    '-legal/copyright,'+     # in the future
+    '-build/header_guard,'+  # not interesting
+    '-whitespace/comments,'+ # not interesting
+    '-build/include,'+       # lint is run from outside src
+    '-build/namespaces,'+    # we are not building a C++ API
+    '-whitespace/braces'+    # some places need { after LF
+    ' src/*.cc'+
+    ' $(find src \! -name queue.h -name *.h)')
 
 def build(ctx):
   ctx.add_pre_fun(lint)

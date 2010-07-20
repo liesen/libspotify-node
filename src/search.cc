@@ -17,7 +17,8 @@ SearchResult::SearchResult(sp_search *search)
 }
 
 Local<Object> SearchResult::New(sp_search *search) {
-  Local<Object> instance = constructor_template->GetFunction()->NewInstance(0, NULL);
+  Local<Object> instance =
+    constructor_template->GetFunction()->NewInstance(0, NULL);
   SearchResult *sr = ObjectWrap::Unwrap<SearchResult>(instance);
   sr->search_ = search;
   // call member "onsetup" (if function) to allow custom setup
@@ -32,7 +33,8 @@ Handle<Value> SearchResult::New(const Arguments& args) {
   return args.This();
 }
 
-Handle<Value> SearchResult::TracksGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> SearchResult::TracksGetter(Local<String> property,
+                                         const AccessorInfo& info) {
   HandleScope scope;
   SearchResult* s = Unwrap<SearchResult>(info.This());
   int count = sp_search_num_tracks(s->search_);
@@ -43,7 +45,8 @@ Handle<Value> SearchResult::TracksGetter(Local<String> property, const AccessorI
   return scope.Close(array);
 }
 
-Handle<Value> SearchResult::AlbumsGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> SearchResult::AlbumsGetter(Local<String> property,
+                                         const AccessorInfo& info) {
   HandleScope scope;
   SearchResult* s = Unwrap<SearchResult>(info.This());
   int count = sp_search_num_albums(s->search_);
@@ -54,7 +57,8 @@ Handle<Value> SearchResult::AlbumsGetter(Local<String> property, const AccessorI
   return scope.Close(array);
 }
 
-Handle<Value> SearchResult::ArtistsGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> SearchResult::ArtistsGetter(Local<String> property,
+                                          const AccessorInfo& info) {
   HandleScope scope;
   SearchResult* s = Unwrap<SearchResult>(info.This());
   int count = sp_search_num_artists(s->search_);
@@ -65,7 +69,8 @@ Handle<Value> SearchResult::ArtistsGetter(Local<String> property, const Accessor
   return scope.Close(array);
 }
 
-Handle<Value> SearchResult::LoadedGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> SearchResult::LoadedGetter(Local<String> property,
+                                         const AccessorInfo& info) {
   HandleScope scope;
   SearchResult *p = Unwrap<SearchResult>(info.This());
   return p->search_
@@ -73,7 +78,8 @@ Handle<Value> SearchResult::LoadedGetter(Local<String> property, const AccessorI
     : Undefined();
 }
 
-Handle<Value> SearchResult::QueryGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> SearchResult::QueryGetter(Local<String> property,
+                                        const AccessorInfo& info) {
   HandleScope scope;
   SearchResult *p = Unwrap<SearchResult>(info.This());
   return p->search_
@@ -81,7 +87,8 @@ Handle<Value> SearchResult::QueryGetter(Local<String> property, const AccessorIn
     : Undefined();
 }
 
-Handle<Value> SearchResult::DidYouMeanGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> SearchResult::DidYouMeanGetter(Local<String> property,
+                                             const AccessorInfo& info) {
   HandleScope scope;
   SearchResult *p = Unwrap<SearchResult>(info.This());
   if (p->search_ && sp_search_is_loaded(p->search_)) {
@@ -92,7 +99,8 @@ Handle<Value> SearchResult::DidYouMeanGetter(Local<String> property, const Acces
   Undefined();
 }
 
-Handle<Value> SearchResult::TotalTracksGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> SearchResult::TotalTracksGetter(Local<String> property,
+                                              const AccessorInfo& info) {
   HandleScope scope;
   SearchResult *p = Unwrap<SearchResult>(info.This());
   return (p->search_ && sp_search_is_loaded(p->search_))
@@ -100,7 +108,8 @@ Handle<Value> SearchResult::TotalTracksGetter(Local<String> property, const Acce
     : Undefined();
 }
 
-Handle<Value> SearchResult::URIGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> SearchResult::URIGetter(Local<String> property,
+                                      const AccessorInfo& info) {
   HandleScope scope;
   SearchResult *p = Unwrap<SearchResult>(info.This());
   if (!p->search_ || !sp_search_is_loaded(p->search_))

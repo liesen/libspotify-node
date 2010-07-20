@@ -80,27 +80,33 @@ inline void nt_atomic_queue_init(nt_atomic_queue *queue) {
 
 void nt_atomic_enqueue64_mp(nt_atomic_queue *queue, void *elem, size_t offset);
 void *nt_atomic_dequeue64_mp(nt_atomic_queue *queue, size_t offset);
-void *nt_atomic_dequeue_ifnexteq64_mp(nt_atomic_queue *queue, size_t offset, void *cmpptr);
+void *nt_atomic_dequeue_ifnexteq64_mp(nt_atomic_queue *queue, size_t offset,
+                                      void *cmpptr);
 
 void nt_atomic_enqueue64_up(nt_atomic_queue *queue, void *elem, size_t offset);
 void *nt_atomic_dequeue64_up(nt_atomic_queue *queue, size_t offset);
-void *nt_atomic_dequeue_ifnexteq64_up(nt_atomic_queue *queue, size_t offset, void *cmpptr);
+void *nt_atomic_dequeue_ifnexteq64_up(nt_atomic_queue *queue, size_t offset,
+                                      void *cmpptr);
 
 #else
 
 void nt_atomic_enqueue32_mp(nt_atomic_queue *queue, void *elem, size_t offset);
 void *nt_atomic_dequeue32_mp(nt_atomic_queue *queue, size_t offset);
-void *nt_atomic_dequeue_ifnexteq32_mp(nt_atomic_queue *queue, size_t offset, void *cmpptr);
+void *nt_atomic_dequeue_ifnexteq32_mp(nt_atomic_queue *queue, size_t offset,
+                                      void *cmpptr);
 
 void nt_atomic_enqueue32_up(nt_atomic_queue *queue, void *elem, size_t offset);
 void *nt_atomic_dequeue32_up(nt_atomic_queue *queue, size_t offset);
-void *nt_atomic_dequeue_ifnexteq32_up(nt_atomic_queue *queue, size_t offset, void *cmpptr);
+void *nt_atomic_dequeue_ifnexteq32_up(nt_atomic_queue *queue, size_t offset,
+                                      void *cmpptr);
 
 void *nt_atomic_dequeue32_on64_mp(nt_atomic_queue *queue, size_t offset);
-void *nt_atomic_dequeue_ifnexteq32_on64_mp(nt_atomic_queue *queue, size_t offset, void *cmpptr);
+void *nt_atomic_dequeue_ifnexteq32_on64_mp(nt_atomic_queue *queue,
+                                           size_t offset, void *cmpptr);
 
 void *nt_atomic_dequeue32_on64_up(nt_atomic_queue *queue, size_t offset);
-void *nt_atomic_dequeue_ifnexteq32_on64_up(nt_atomic_queue *queue, size_t offset, void *cmpptr);
+void *nt_atomic_dequeue_ifnexteq32_on64_up(nt_atomic_queue *queue,
+                                           size_t offset, void *cmpptr);
 
 #endif
 
@@ -112,7 +118,8 @@ void *nt_atomic_dequeue_ifnexteq32_on64_up(nt_atomic_queue *queue, size_t offset
   @param offset offset in bytes to the link pointer of @elem. Usually
                 offsetof(my_struct, link_member).
 */
-inline void nt_atomic_enqueue(nt_atomic_queue *queue, void *elem, size_t offset) {
+inline void nt_atomic_enqueue(nt_atomic_queue *queue, void *elem,
+                              size_t offset) {
 #ifdef __LP64__
   nt_atomic_enqueue64_mp(queue, elem, offset);
 #else
@@ -150,7 +157,8 @@ inline void *nt_atomic_dequeue(nt_atomic_queue *queue, size_t offset) {
                 is returned.
   @returns pointer to a dequeued element or NULL if the queue is empty.
 */
-inline void *nt_atomic_dequeue_ifnexteq(nt_atomic_queue *queue, size_t offset, void *cmpptr) {
+inline void *nt_atomic_dequeue_ifnexteq(nt_atomic_queue *queue, size_t offset,
+                                        void *cmpptr) {
 #ifdef __LP64__
   nt_atomic_dequeue_ifnexteq64_mp(queue, offset, cmpptr);
 #else

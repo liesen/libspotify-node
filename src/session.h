@@ -26,7 +26,7 @@ class Session : public node::EventEmitter {
 
   void ProcessEvents();
 
-  Session(sp_session* session);
+  explicit Session(sp_session* session);
   ~Session();
 
   sp_session* session_;

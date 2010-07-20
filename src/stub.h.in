@@ -4,7 +4,7 @@
 #include "index.h"
 
 class Stub : public EventEmitter {
-public:
+ public:
   static Persistent<FunctionTemplate> constructor_template;
   static void Initialize(Handle<Object> target);
   Stub(void* userdata);
@@ -12,7 +12,7 @@ public:
   static Handle<Value> New(void *userdata);
 
   static Handle<Value> FooGetter(Local<String> property, const AccessorInfo& info);
-protected:
+ protected:
   void* userdata_;
 };
 

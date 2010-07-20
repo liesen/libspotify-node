@@ -18,7 +18,8 @@ Artist::~Artist() {
 
 Local<Object> Artist::New(sp_artist *artist) {
   HandleScope scope;
-  Local<Object> instance = constructor_template->GetFunction()->NewInstance(0, NULL);
+  Local<Object> instance =
+    constructor_template->GetFunction()->NewInstance(0, NULL);
   Artist *p = ObjectWrap::Unwrap<Artist>(instance);
   p->artist_ = artist;
   if (p->artist_) {
@@ -40,7 +41,7 @@ void Artist::SetupBackingArtist() {
 
   // status check
   if (!sp_artist_is_loaded(artist_)) {
-    fprintf(stderr, "todo [%s:%d]: artist is not yet loaded\n",__FILE__,__LINE__);
+    TODO("artist is not yet loaded");
     return;
   }
 
@@ -48,7 +49,8 @@ void Artist::SetupBackingArtist() {
   handle_->Set(String::New("name"), String::New(sp_artist_name(artist_)));
 }
 
-Handle<Value> Artist::LoadedGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Artist::LoadedGetter(Local<String> property,
+                                   const AccessorInfo& info) {
   HandleScope scope;
   Artist *p = Unwrap<Artist>(info.This());
   return p->artist_
@@ -56,7 +58,8 @@ Handle<Value> Artist::LoadedGetter(Local<String> property, const AccessorInfo& i
     : Undefined();
 }
 
-Handle<Value> Artist::URIGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Artist::URIGetter(Local<String> property,
+                                const AccessorInfo& info) {
   HandleScope scope;
   Artist *p = Unwrap<Artist>(info.This());
   if (!p->artist_ || !sp_artist_is_loaded(p->artist_))

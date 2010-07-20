@@ -5,9 +5,9 @@
 #include "queue.h"
 
 typedef struct create_callback_entry {
-	TAILQ_ENTRY(create_callback_entry) link;
-	sp_playlist *playlist;
-	v8::Persistent<v8::Function> *callback;
+  TAILQ_ENTRY(create_callback_entry) link;
+  sp_playlist *playlist;
+  v8::Persistent<v8::Function> *callback;
 } create_callback_entry_t;
 TAILQ_HEAD(create_callback_queue, create_callback_entry);
 typedef struct create_callback_queue create_callback_queue_t;
@@ -15,7 +15,7 @@ typedef struct create_callback_queue create_callback_queue_t;
 
 class PlaylistContainer : public node::EventEmitter {
  public:
-  PlaylistContainer(sp_playlistcontainer* playlist_container);
+  explicit PlaylistContainer(sp_playlistcontainer* playlist_container);
   ~PlaylistContainer();
 
   static void Initialize(v8::Handle<v8::Object> target);

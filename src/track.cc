@@ -23,7 +23,8 @@ Track::~Track() {
 
 Handle<Value> Track::New(sp_track *track) {
   HandleScope scope;
-  Local<Object> instance = constructor_template->GetFunction()->NewInstance(0, NULL);
+  Local<Object> instance =
+    constructor_template->GetFunction()->NewInstance(0, NULL);
   Track *p = ObjectWrap::Unwrap<Track>(instance);
   p->track_ = track;
   if (p->track_) {
@@ -53,23 +54,26 @@ bool Track::SetupBackingTrack() {
 
   // status check
   switch (sp_track_error(track_)) {
-   case SP_ERROR_OK:
+  case SP_ERROR_OK:
     break;
-   case SP_ERROR_IS_LOADING:
+  case SP_ERROR_IS_LOADING:
     // possible solution: nextTick -> check, .. until loaded
-    fprintf(stderr, "todo [%s:%d]: track is not yet loaded\n",__FILE__,__LINE__);
+    TODO("track is not yet loaded");
     return true;
-   default:
+  default:
     return false;
   }
 
   // todo: symbolize keys
 
-  handle_->Set(String::New("name"), String::New(sp_track_name(track_)));
-  handle_->Set(String::New("available"), Boolean::New(sp_track_is_available(track_)));
-  handle_->Set(String::New("duration"), Integer::New(sp_track_duration(track_)));
+  handle_->Set(String::New("name"),
+    String::New(sp_track_name(track_)));
+  handle_->Set(String::New("available"),
+    Boolean::New(sp_track_is_available(track_)));
+  handle_->Set(String::New("duration"),
+    Integer::New(sp_track_duration(track_)));
   handle_->Set(String::New("popularity"),
-    Number::New( (float)sp_track_popularity(track_)/100.0 ));
+    Integer::New(sp_track_popularity(track_)));
 
   // only available for browse results:
   int d = sp_track_index(track_);
@@ -80,7 +84,8 @@ bool Track::SetupBackingTrack() {
   return true;
 }
 
-Handle<Value> Track::LoadedGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Track::LoadedGetter(Local<String> property,
+                                  const AccessorInfo& info) {
   HandleScope scope;
   Track *p = Unwrap<Track>(info.This());
   return p->track_
@@ -88,7 +93,8 @@ Handle<Value> Track::LoadedGetter(Local<String> property, const AccessorInfo& in
     : Undefined();
 }
 
-Handle<Value> Track::AlbumGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Track::AlbumGetter(Local<String> property,
+                                 const AccessorInfo& info) {
   HandleScope scope;
   Track *p = Unwrap<Track>(info.This());
   if (!p->track_ || !sp_track_is_loaded(p->track_))
@@ -100,7 +106,8 @@ Handle<Value> Track::AlbumGetter(Local<String> property, const AccessorInfo& inf
   return scope.Close(p->album_->handle_);
 }
 
-Handle<Value> Track::ArtistsGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Track::ArtistsGetter(Local<String> property,
+                                   const AccessorInfo& info) {
   HandleScope scope;
   Track *p = Unwrap<Track>(info.This());
   if (!p->track_ || !sp_track_is_loaded(p->track_))
@@ -115,7 +122,8 @@ Handle<Value> Track::ArtistsGetter(Local<String> property, const AccessorInfo& i
   scope.Close(array);
 }
 
-Handle<Value> Track::URIGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Track::URIGetter(Local<String> property,
+                               const AccessorInfo& info) {
   HandleScope scope;
   Track *p = Unwrap<Track>(info.This());
   if (!p->track_ || !sp_track_is_loaded(p->track_))

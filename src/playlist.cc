@@ -17,9 +17,9 @@ static const char *_PlaylistURI(sp_playlist *pl) {
 // -----------------------------------------------------------------------------
 // libspotify callbacks
 
-static void TracksAdded(sp_playlist *playlist, sp_track *const *tracks, int count, int position, void *userdata) {
+static void TracksAdded(sp_playlist *playlist, sp_track *const *tracks,
+                        int count, int position, void *userdata) {
   // called on the main thread
-  //printf("[%s] tracksAdded(<tracks*>, %d, %d)\n", _PlaylistURI(playlist), count, position);
   Playlist* pl = static_cast<Playlist*>(userdata);
   Handle<Value> argv[] = {
     Integer::New(count),
@@ -29,9 +29,9 @@ static void TracksAdded(sp_playlist *playlist, sp_track *const *tracks, int coun
   pl->Emit(String::New("tracksAdded"), 2, argv);
 }
 
-static void TracksRemoved(sp_playlist *playlist, const int *tracks, int count, void *userdata) {
+static void TracksRemoved(sp_playlist *playlist, const int *tracks, int count,
+                          void *userdata) {
   // called on the main thread
-  //printf("[%s] tracksRemoved(<track-indices*>, %d)\n", _PlaylistURI(playlist), count);
   Playlist* pl = static_cast<Playlist*>(userdata);
   Local<Array> array = Array::New(count);
   for (int i = 0; i < count; i++) {
@@ -41,9 +41,9 @@ static void TracksRemoved(sp_playlist *playlist, const int *tracks, int count, v
   pl->Emit(String::New("tracksRemoved"), 1, argv);
 }
 
-static void TracksMoved(sp_playlist *playlist, const int *tracks, int count, int new_position, void *userdata) {
+static void TracksMoved(sp_playlist *playlist, const int *tracks, int count,
+                        int new_position, void *userdata) {
   // called on the main thread
-  //printf("[%s] tracksMoved(<track-indices*>, %d, %d)\n", _PlaylistURI(playlist), count, new_position);
   Playlist* pl = static_cast<Playlist*>(userdata);
   Local<Array> array = Array::New(count);
   for (int i = 0; i < count; i++) {
@@ -55,7 +55,6 @@ static void TracksMoved(sp_playlist *playlist, const int *tracks, int count, int
 
 static void PlaylistRenamed(sp_playlist *playlist, void *userdata) {
   // called on the main thread
-  //printf("[%s] renamed -- name: %s\n", _PlaylistURI(playlist), sp_playlist_name(pl));
   Playlist* pl = static_cast<Playlist*>(userdata);
   pl->Emit(String::New("renamed"), 0, NULL);
 }
@@ -63,13 +62,16 @@ static void PlaylistRenamed(sp_playlist *playlist, void *userdata) {
 static void PlaylistStateChanged(sp_playlist *playlist, void *userdata) {
   // called on the main thread
   // The "state" in this case are the flags like collaborative or pending.
-  //printf("[%s] stateChanged -- colab: %d, pending: %d\n", _PlaylistURI(playlist),
-  //  sp_playlist_is_collaborative(playlist), sp_playlist_has_pending_changes(playlist));
+  //printf("[%s] stateChanged -- colab: %d, pending: %d\n",
+  //       _PlaylistURI(playlist),
+  //       sp_playlist_is_collaborative(playlist),
+  //       sp_playlist_has_pending_changes(playlist));
   Playlist* pl = static_cast<Playlist*>(userdata);
   pl->Emit(String::New("stateChanged"), 0, NULL);
 }
 
-static void PlaylistUpdateInProgress(sp_playlist *playlist, bool done, void *userdata) {
+static void PlaylistUpdateInProgress(sp_playlist *playlist, bool done,
+                                     void *userdata) {
   // called on the main thread
   //printf("[%s] updateInProgress -- done: %s\n",
   //  _PlaylistURI(playlist), done ? "true" : "false");
@@ -112,7 +114,8 @@ Playlist::~Playlist() {
 }
 
 Handle<Value> Playlist::New(sp_playlist *playlist) {
-  Local<Object> instance = constructor_template->GetFunction()->NewInstance(0, NULL);
+  Local<Object> instance =
+    constructor_template->GetFunction()->NewInstance(0, NULL);
   Playlist *pl = ObjectWrap::Unwrap<Playlist>(instance);
   if (pl->playlist_) sp_playlist_release(pl->playlist_);
   pl->playlist_ = playlist;
@@ -128,14 +131,16 @@ Handle<Value> Playlist::New(const Arguments& args) {
   return args.This();
 }
 
-Handle<Value> Playlist::LoadedGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Playlist::LoadedGetter(Local<String> property,
+                                     const AccessorInfo& info) {
   HandleScope scope;
   sp_playlist* playlist = ObjectWrap::Unwrap<Playlist>(info.This())->playlist_;
   if (!playlist) return Undefined();
   return scope.Close(Boolean::New(sp_playlist_is_loaded(playlist)));
 }
 
-Handle<Value> Playlist::NameGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Playlist::NameGetter(Local<String> property,
+                                   const AccessorInfo& info) {
   HandleScope scope;
   sp_playlist* playlist = ObjectWrap::Unwrap<Playlist>(info.This())->playlist_;
   if (!playlist || !sp_playlist_is_loaded(playlist))
@@ -143,7 +148,8 @@ Handle<Value> Playlist::NameGetter(Local<String> property, const AccessorInfo& i
   return scope.Close(String::New(sp_playlist_name(playlist)));
 }
 
-Handle<Value> Playlist::URIGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Playlist::URIGetter(Local<String> property,
+                                  const AccessorInfo& info) {
   HandleScope scope;
   Playlist *p = Unwrap<Playlist>(info.This());
   if (!p->playlist_ || !sp_playlist_is_loaded(p->playlist_))

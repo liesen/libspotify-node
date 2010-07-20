@@ -6,19 +6,23 @@
 class Album;
 
 class Track : public EventEmitter {
-public:
+ public:
   static Persistent<FunctionTemplate> constructor_template;
   static void Initialize(Handle<Object> target);
-  Track(sp_track *track);
+  explicit Track(sp_track *track);
   ~Track();
   static Handle<Value> New(const Arguments& args);
   static Handle<Value> New(sp_track *track);
 
-  static Handle<Value> LoadedGetter(Local<String> property, const AccessorInfo& info);
-  static Handle<Value> AlbumGetter(Local<String> property, const AccessorInfo& info);
-  static Handle<Value> ArtistsGetter(Local<String> property, const AccessorInfo& info);
-  static Handle<Value> URIGetter(Local<String> property, const AccessorInfo& info);
-protected:
+  static Handle<Value> LoadedGetter(Local<String> property,
+                                    const AccessorInfo& info);
+  static Handle<Value> AlbumGetter(Local<String> property,
+                                   const AccessorInfo& info);
+  static Handle<Value> ArtistsGetter(Local<String> property,
+                                     const AccessorInfo& info);
+  static Handle<Value> URIGetter(Local<String> property,
+                                 const AccessorInfo& info);
+ protected:
   bool SetupBackingTrack();
   sp_track* track_;
   Album *album_;

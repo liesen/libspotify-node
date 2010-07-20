@@ -17,5 +17,6 @@ extern "C" void init(Handle<Object> target) {
   Album::Initialize(target);
   Artist::Initialize(target);
   target->Set(String::NewSymbol("version"), String::New("0.1"));
-  target->Set(String::NewSymbol("spotifyAPIVersion"), Integer::New(SPOTIFY_API_VERSION));
+  target->Set(String::NewSymbol("spotifyAPIVersion"),
+    Integer::New(SPOTIFY_API_VERSION));
 }

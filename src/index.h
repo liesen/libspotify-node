@@ -12,11 +12,24 @@
 using namespace v8;
 using namespace node;
 
-#define STRPTR(obj) (*String::Utf8Value((obj)->ToString()))
-#define STRSIZ(obj) ((obj)->ToString()->Utf8Length())
+// -----------------------------------------------------------------------------
+// Aiding construction of types
 
-// ----------------------------------------------------------------------------
+// Property getter interface boilerplate
+#define GETTER_H(name)\
+  static Handle<Value> name(Local<String> property, const AccessorInfo& info)
+
+// Property getter implementation boilerplate
+#define GETTER_C(name)\
+  Handle<Value> name(Local<String> property, const AccessorInfo& info)
+
+// -----------------------------------------------------------------------------
 // Helpers
+
+// Emitting WIP/development notes
+#define TODO(tmpl, ...)\
+  fprintf(stderr, "TODO [node-spotify %s:%d]: " tmpl "\n", \
+          __FILE__, __LINE__, ##__VA_ARGS__)
 
 // Throwing exceptions
 #define JS_THROW(t, s) ThrowException(Exception::t(String::New(s)))

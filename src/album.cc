@@ -47,7 +47,7 @@ void Album::SetupBackingAlbum() {
 
   // status check
   if (!sp_album_is_loaded(album_)) {
-    fprintf(stderr, "todo [%s:%d]: album is not yet loaded\n",__FILE__,__LINE__);
+    TODO("album is not yet loaded");
     return;
   }
 
@@ -61,7 +61,8 @@ void Album::SetupBackingAlbum() {
   handle_->Set(String::New("_type"), Integer::New(sp_album_type(album_)));
 }
 
-Handle<Value> Album::LoadedGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Album::LoadedGetter(Local<String> property,
+                                  const AccessorInfo& info) {
   HandleScope scope;
   Album *p = Unwrap<Album>(info.This());
   return p->album_
@@ -69,7 +70,8 @@ Handle<Value> Album::LoadedGetter(Local<String> property, const AccessorInfo& in
     : Undefined();
 }
 
-Handle<Value> Album::ArtistGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Album::ArtistGetter(Local<String> property,
+                                  const AccessorInfo& info) {
   HandleScope scope;
   Album *p = Unwrap<Album>(info.This());
   if (!p->album_ || !sp_album_is_loaded(p->album_))
@@ -78,7 +80,8 @@ Handle<Value> Album::ArtistGetter(Local<String> property, const AccessorInfo& in
   scope.Close(artist);
 }
 
-Handle<Value> Album::URIGetter(Local<String> property, const AccessorInfo& info) {
+Handle<Value> Album::URIGetter(Local<String> property,
+                               const AccessorInfo& info) {
   HandleScope scope;
   Album *p = Unwrap<Album>(info.This());
   if (!p->album_ || !sp_album_is_loaded(p->album_))

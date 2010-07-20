@@ -19,15 +19,15 @@ static void PlaylistAdded(sp_playlistcontainer *pc,
   // First, trigger any queued callback from Create
   create_callback_entry_t *entry;
   TAILQ_FOREACH(entry, &p->create_callback_queue_, link) {
-		if (entry->playlist == playlist) {
+    if (entry->playlist == playlist) {
       Local<Value> argv[] = { (*Undefined()), (*Playlist::New(playlist)) };
       (*entry->callback)->Call(p->handle_, 2, argv);
       sp_playlist_release(entry->playlist);
       cb_destroy(entry->callback);
       TAILQ_REMOVE(&p->create_callback_queue_, entry, link);
       delete entry;
-		}
-	}
+    }
+  }
 
   Handle<Value> argv[] = { Playlist::New(playlist), Integer::New(position) };
   p->Emit(String::New("playlistAdded"), 2, argv);
@@ -81,8 +81,10 @@ static sp_playlistcontainer_callbacks callbacks = {
 
 PlaylistContainer::PlaylistContainer(sp_playlistcontainer* playlist_container)
   : EventEmitter(), playlist_container_(playlist_container) {
-  if (this->playlist_container_)
-    sp_playlistcontainer_add_callbacks(this->playlist_container_, &callbacks, this);
+  if (this->playlist_container_) {
+    sp_playlistcontainer_add_callbacks(this->playlist_container_, &callbacks,
+                                       this);
+  }
   TAILQ_INIT(&create_callback_queue_);
 }
 
@@ -95,12 +97,13 @@ PlaylistContainer::~PlaylistContainer() {
     sp_playlist_release(entry->playlist);
     cb_destroy(entry->callback);
     delete entry;
-	}
+  }
 }
 
 Handle<Value> PlaylistContainer::New(sp_playlistcontainer *playlist_container) {
   HandleScope scope;
-  Local<Object> instance = constructor_template->GetFunction()->NewInstance(0, NULL);
+  Local<Object> instance =
+    constructor_template->GetFunction()->NewInstance(0, NULL);
   PlaylistContainer *pc = ObjectWrap::Unwrap<PlaylistContainer>(instance);
   pc->playlist_container_ = playlist_container;
   sp_playlistcontainer_add_callbacks(pc->playlist_container_, &callbacks, pc);
@@ -111,7 +114,7 @@ Handle<Value> PlaylistContainer::New(const Arguments& args) {
   HandleScope scope;
   PlaylistContainer* pc = new PlaylistContainer(
     args.Length() > 0 && args[0]->IsExternal()
-      ? (sp_playlistcontainer *)External::Unwrap(args[0])
+      ? reinterpret_cast<sp_playlistcontainer *>(External::Unwrap(args[0]))
       : NULL);
   pc->Wrap(args.This());
   return args.This();
@@ -125,7 +128,8 @@ Handle<Value> PlaylistContainer::LengthGetter(Local<String> property,
     sp_playlistcontainer_num_playlists(pc->playlist_container_)));
 }
 
-Handle<Value> PlaylistContainer::PlaylistGetter(uint32_t index, const AccessorInfo& info) {
+Handle<Value> PlaylistContainer::PlaylistGetter(uint32_t index,
+                                                const AccessorInfo& info) {
   HandleScope scope;
   PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
   sp_playlist* playlist = sp_playlistcontainer_playlist(
@@ -185,8 +189,7 @@ Handle<Value> PlaylistContainer::Create(const Arguments& args) {
   sp_playlist *playlist = sp_playlistcontainer_add_new_playlist(
     s->playlist_container_,
     //(*String::Utf8Value((args[0])->ToString()))
-    *name
-  );
+    *name);
 
   if (!playlist)
     return JS_THROW(Error, "failed to create new playlist");
@@ -221,5 +224,6 @@ void PlaylistContainer::Initialize(Handle<Object> target) {
                                         PlaylistDeleter,
                                         PlaylistEnumerator);
 
-  target->Set(String::New("PlaylistContainer"), constructor_template->GetFunction());
+  target->Set(String::New("PlaylistContainer"),
+    constructor_template->GetFunction());
 }
