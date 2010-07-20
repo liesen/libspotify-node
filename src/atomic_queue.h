@@ -58,7 +58,7 @@ extern "C" {
 */
 typedef volatile struct {
   volatile void *opaque1;
-  volatile long opaque2;
+  volatile size_t opaque2;
 #if defined(__GNUC__) && ( defined(__x86_64__) || defined(__LP64__) )
 } nt_atomic_queue __attribute__((aligned(16)));
 #else
@@ -67,11 +67,13 @@ typedef volatile struct {
 
 /**
   Initialize a queue.
-
-  Alternatively zero it out (e.g.):
-    memset((void*)&this->log_messages_q_, 0, sizeof(nt_atomic_queue));
 */
 #define NT_ATOMIC_QUEUE_INIT (nt_atomic_queue) { NULL, 0L }
+
+inline void nt_atomic_queue_init(nt_atomic_queue *queue) {
+  queue->opaque1 = NULL;
+  queue->opaque2 = 0L;
+}
 
 // workhorse prototypes
 #ifdef __LP64__
