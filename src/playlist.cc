@@ -1,6 +1,13 @@
 #include "playlist.h"
+#include "playlistcontainer.h"
+
+#include <map>
 
 Persistent<FunctionTemplate> Playlist::constructor_template;
+
+typedef std::map<sp_playlist*, v8::Persistent<v8::Object> > PlaylistMap;
+
+static PlaylistMap playlist_cache_;
 
 // -----------------------------------------------------------------------------
 // internal helpers
@@ -110,24 +117,38 @@ Playlist::Playlist(sp_playlist* playlist)
 }
 
 Playlist::~Playlist() {
-  if (playlist_) sp_playlist_release(playlist_);
+  if (playlist_) {
+    PlaylistMap::iterator it = playlist_cache_.find(playlist_);
+
+    if (it != playlist_cache_.end()) {
+      it->second.Dispose();
+      playlist_cache_.erase(it);
+    }
+
+    sp_playlist_release(playlist_);
+  }
 }
 
+/**
+ * Creates a new JavaScript playlist object wrapper, or a cached if one exists.
+ */
 Handle<Value> Playlist::New(sp_playlist *playlist) {
-  Local<Object> instance =
-    constructor_template->GetFunction()->NewInstance(0, NULL);
-  Playlist *pl = ObjectWrap::Unwrap<Playlist>(instance);
-  if (pl->playlist_) sp_playlist_release(pl->playlist_);
-  pl->playlist_ = playlist;
-  if (pl->playlist_) {
-    sp_playlist_add_ref(pl->playlist_);
-    sp_playlist_add_callbacks(pl->playlist_, &callbacks, pl);
-  }
+  // Try to find playlist in cache
+  PlaylistMap::iterator it = playlist_cache_.find(playlist);
+
+  if (it != playlist_cache_.end())
+    return it->second;
+
+  // Create new object
+  Persistent<Object> instance = Persistent<Object>::New(
+      constructor_template->GetFunction()->NewInstance(0, NULL));
+  Playlist* pl = new Playlist(playlist);
+  pl->Wrap(instance);
+  playlist_cache_[playlist] = instance;
   return instance;
 }
 
 Handle<Value> Playlist::New(const Arguments& args) {
-  (new Playlist(NULL))->Wrap(args.This());
   return args.This();
 }
 
