@@ -127,7 +127,7 @@ void SearchResult::Initialize(Handle<Object> target) {
   constructor_template = Persistent<FunctionTemplate>::New(t);
   constructor_template->SetClassName(String::NewSymbol("SearchResult"));
   constructor_template->Inherit(EventEmitter::constructor_template);
-  
+
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::NewSymbol("loaded"), LoadedGetter);

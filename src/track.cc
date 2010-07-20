@@ -62,9 +62,9 @@ bool Track::SetupBackingTrack() {
    default:
     return false;
   }
-  
+
   // todo: symbolize keys
-  
+
   handle_->Set(String::New("name"), String::New(sp_track_name(track_)));
   handle_->Set(String::New("available"), Boolean::New(sp_track_is_available(track_)));
   handle_->Set(String::New("duration"), Integer::New(sp_track_duration(track_)));
@@ -135,7 +135,7 @@ void Track::Initialize(Handle<Object> target) {
   constructor_template = Persistent<FunctionTemplate>::New(t);
   constructor_template->SetClassName(String::NewSymbol("Track"));
   constructor_template->Inherit(EventEmitter::constructor_template);
-  
+
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::New("loaded"), LoadedGetter);

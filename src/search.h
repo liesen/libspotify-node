@@ -6,7 +6,7 @@
 class SearchResult : public EventEmitter {
 public:
   static Persistent<FunctionTemplate> constructor_template;
-  
+
   static void Initialize(Handle<Object> target);
   SearchResult(sp_search* search);
   static Handle<Value> New(const Arguments& args);

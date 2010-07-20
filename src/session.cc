@@ -151,7 +151,7 @@ static void SearchComplete(sp_search *search, void *userdata) {
     };
     (*sdata->callback)->Call(s->handle_, 2, argv);
   }
-  
+
   cb_destroy(sdata->callback);
   delete sdata;
 }
@@ -359,7 +359,7 @@ Handle<Value> Session::Search(const Arguments& args) {
   int album_count;
   int artist_offset;
   int artist_count;
-  
+
   if (args[0]->IsString()) {
     query = args[0];
   } else if (args[0]->IsObject()) {

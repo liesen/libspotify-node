@@ -6,10 +6,10 @@
 class Playlist : public EventEmitter {
  public:
   static void Initialize(Handle<Object> target);
-  
+
   Playlist(sp_playlist* playlist);
   ~Playlist();
-  
+
   static Handle<Value> New(const Arguments& args);
   static Handle<Value> New(sp_playlist *playlist);
 

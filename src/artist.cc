@@ -37,13 +37,13 @@ Handle<Value> Artist::New(const Arguments& args) {
 
 void Artist::SetupBackingArtist() {
   if (!artist_) return;
-  
+
   // status check
   if (!sp_artist_is_loaded(artist_)) {
     fprintf(stderr, "todo [%s:%d]: artist is not yet loaded\n",__FILE__,__LINE__);
     return;
   }
-  
+
   // todo: symbolize keys
   handle_->Set(String::New("name"), String::New(sp_artist_name(artist_)));
 }
@@ -76,7 +76,7 @@ void Artist::Initialize(Handle<Object> target) {
   constructor_template = Persistent<FunctionTemplate>::New(t);
   constructor_template->SetClassName(String::NewSymbol("Artist"));
   constructor_template->Inherit(EventEmitter::constructor_template);
-  
+
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::New("loaded"), LoadedGetter);

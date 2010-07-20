@@ -38,7 +38,7 @@ class Session : public node::EventEmitter {
   // Node-Spotify runloop glue
   ev_timer runloop_timer_;
   ev_async runloop_async_;
-  
+
   // Spotify background thread-to-node-main glue
   ev_async logmsg_async_;
   nt_atomic_queue log_messages_q_;

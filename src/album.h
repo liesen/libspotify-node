@@ -11,7 +11,7 @@ public:
   ~Album();
   static Handle<Value> New(const Arguments& args);
   static Local<Object> New(sp_album *album);
-  
+
   static Handle<Value> LoadedGetter(Local<String> property, const AccessorInfo& info);
   static Handle<Value> ArtistGetter(Local<String> property, const AccessorInfo& info);
   static Handle<Value> URIGetter(Local<String> property, const AccessorInfo& info);

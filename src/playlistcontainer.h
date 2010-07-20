@@ -22,7 +22,7 @@ class PlaylistContainer : public node::EventEmitter {
 
   static v8::Handle<v8::Value> New(sp_playlistcontainer* playlist_container);
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
-  
+
   static v8::Handle<v8::Value> LengthGetter(v8::Local<v8::String> property,
                                             const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> PlaylistGetter(uint32_t index,
@@ -35,13 +35,13 @@ class PlaylistContainer : public node::EventEmitter {
   static v8::Handle<v8::Boolean> PlaylistQuery(uint32_t index,
                                                const v8::AccessorInfo& info);
   static v8::Handle<v8::Array> PlaylistEnumerator(const v8::AccessorInfo& info);
-  
-  
+
+
   static v8::Handle<v8::Value> Create(const v8::Arguments& args);
-  
+
   sp_playlistcontainer* playlist_container_;
   create_callback_queue_t create_callback_queue_;
-  
+
   static v8::Persistent<v8::FunctionTemplate> constructor_template;
 };
 

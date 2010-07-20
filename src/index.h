@@ -20,8 +20,11 @@ using namespace node;
 
 // Throwing exceptions
 #define JS_THROW(t, s) ThrowException(Exception::t(String::New(s)))
-#define JS_THROWF(tmpl, ...)\
-  { char msg[1024]; snprintf(msg,1023,tmpl,__VA_ARGS__); JS_THROW(msg); }
+#define JS_THROWF(tmpl, ...) {\
+  char msg[1024];\
+  snprintf(msg, sizeof(msg), tmpl, __VA_ARGS__);\
+  JS_THROW(msg);\
+}
 
 // Creates a UTF-8 C string from a Value.
 // Note: if you only need to access the string (i.e. not make a copy of it) you

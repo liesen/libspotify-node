@@ -10,7 +10,7 @@ public:
   Stub(void* userdata);
   static Handle<Value> New(const Arguments& args);
   static Handle<Value> New(void *userdata);
-  
+
   static Handle<Value> FooGetter(Local<String> property, const AccessorInfo& info);
 protected:
   void* userdata_;

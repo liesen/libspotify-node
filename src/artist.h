@@ -11,7 +11,7 @@ public:
   ~Artist();
   static Handle<Value> New(const Arguments& args);
   static Local<Object> New(sp_artist *artist);
-  
+
   static Handle<Value> LoadedGetter(Local<String> property, const AccessorInfo& info);
   static Handle<Value> URIGetter(Local<String> property, const AccessorInfo& info);
 protected:

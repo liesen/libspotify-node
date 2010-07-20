@@ -14,8 +14,7 @@ Persistent<FunctionTemplate> Album::constructor_template;
 
 Album::Album(sp_album *album)
   : node::EventEmitter()
-  , album_(album)
-{
+  , album_(album) {
 }
 
 Album::~Album() {
@@ -25,7 +24,8 @@ Album::~Album() {
 
 Local<Object> Album::New(sp_album *album) {
   HandleScope scope;
-  Local<Object> instance = constructor_template->GetFunction()->NewInstance(0, NULL);
+  Local<Object> instance =
+    constructor_template->GetFunction()->NewInstance(0, NULL);
   Album *p = ObjectWrap::Unwrap<Album>(instance);
   p->album_ = album;
   if (p->album_) {
@@ -44,15 +44,15 @@ Handle<Value> Album::New(const Arguments& args) {
 
 void Album::SetupBackingAlbum() {
   if (!album_) return;
-  
+
   // status check
   if (!sp_album_is_loaded(album_)) {
     fprintf(stderr, "todo [%s:%d]: album is not yet loaded\n",__FILE__,__LINE__);
     return;
   }
-  
+
   // todo: symbolize keys
-  
+
   handle_->Set(String::New("name"), String::New(sp_album_name(album_)));
   handle_->Set(String::New("year"), Integer::New(sp_album_year(album_)));
   // Type is only available when browsing albums, so e.g. will be
@@ -98,7 +98,7 @@ void Album::Initialize(Handle<Object> target) {
   constructor_template = Persistent<FunctionTemplate>::New(t);
   constructor_template->SetClassName(String::NewSymbol("Album"));
   constructor_template->Inherit(EventEmitter::constructor_template);
-  
+
   Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::New("loaded"), LoadedGetter);

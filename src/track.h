@@ -13,7 +13,7 @@ public:
   ~Track();
   static Handle<Value> New(const Arguments& args);
   static Handle<Value> New(sp_track *track);
-  
+
   static Handle<Value> LoadedGetter(Local<String> property, const AccessorInfo& info);
   static Handle<Value> AlbumGetter(Local<String> property, const AccessorInfo& info);
   static Handle<Value> ArtistsGetter(Local<String> property, const AccessorInfo& info);
