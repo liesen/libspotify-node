@@ -1,11 +1,5 @@
 #include "user.h"
 
-#include <v8.h>
-#include <libspotify/api.h>
-#include <node.h>
-
-using namespace v8;
-
 Handle<Object> User::NewInstance(sp_user *user) {
   HandleScope scope;
   Local<ObjectTemplate> t = ObjectTemplate::New();

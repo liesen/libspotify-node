@@ -1,11 +1,5 @@
 #include "artist.h"
 
-using namespace v8;
-using namespace node;
-
-#define NS_THROW(_type_, _msg_)\
-  return ThrowException(Exception::_type_(String::New(_msg_)))
-
 Persistent<FunctionTemplate> Artist::constructor_template;
 
 // -----------------------------------------------------------------------------

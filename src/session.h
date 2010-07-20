@@ -1,11 +1,7 @@
 #ifndef SPOTIFY_SESSION_H_
 #define SPOTIFY_SESSION_H_
 
-#include <v8.h>
-#include <node.h>
-#include <node_events.h>
-#include <libspotify/api.h>
-
+#include "index.h"
 #include "atomic_queue.h"
 #include "playlistcontainer.h"
 

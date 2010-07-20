@@ -1,11 +1,7 @@
 #ifndef SPOTIFY_PLAYLISTCONTAINER_H_
 #define SPOTIFY_PLAYLISTCONTAINER_H_
 
-#include <libspotify/api.h>
-#include <node.h>
-#include <node_events.h>
-#include <v8.h>
-
+#include "index.h"
 #include "queue.h"
 
 typedef struct create_callback_entry {

@@ -2,17 +2,10 @@
 #include "user.h"
 #include "search.h"
 
-#include <libspotify/api.h>
-#include <node.h>
-#include <node_events.h>
 #include <pthread.h>
 #include <signal.h>
 #include <string>
 #include <unistd.h>
-#include <v8.h>
-
-using namespace node;
-using namespace v8;
 
 typedef struct log_message {
   struct log_message *next;
@@ -27,19 +20,6 @@ typedef struct search_data {
 } search_data_t;
 
 static Persistent<String> log_message_symbol;
-
-// ----------------------------------------------------------------------------
-// Helpers
-
-#define THROW_EXCEPTION(_type_, _msg_)\
-  return ThrowException(Exception::_type_(String::New(_msg_)))
-
-static inline const char* ToCString(Handle<Value> value) {
-  Local<String> str = value->ToString();
-  char *p = new char[str->Utf8Length()];
-  str->WriteUtf8(p);
-  return p;
-}
 
 // ----------------------------------------------------------------------------
 // libspotify callbacks
@@ -228,11 +208,11 @@ Handle<Value> Session::New(const Arguments& args) {
 
   sp_session_config config = {
     /* api_version */           SPOTIFY_API_VERSION,
-    /* cache_location */        NULL,  // must be set and is below
-    /* settings_location */     NULL,  // must be set and is below
-    /* application_key */       NULL,  // optional but set below
+    /* cache_location */        ".spotify-cache",
+    /* settings_location */     ".spotify-settings",
+    /* application_key */       NULL,
     /* application_key_size */  0,
-    /* user_agent */            NULL,  // must be set and is below
+    /* user_agent */            "node-spotify",
     /* callbacks */             &callbacks,
     /* userdata */              s,
   };
@@ -242,14 +222,14 @@ Handle<Value> Session::New(const Arguments& args) {
 
   if (args.Length() > 0) {
     if (!args[0]->IsObject())
-      THROW_EXCEPTION(TypeError, "first argument must be an object");
+      return JS_THROW(TypeError, "first argument must be an object");
 
     Local<Object> configuration = args[0]->ToObject();
 
     // applicationKey
     if (configuration->Has(String::New("applicationKey"))) {
       Local<Value> v = configuration->Get(String::New("applicationKey"));
-      if (!v->IsArray()) THROW_EXCEPTION(TypeError, "applicationKey must be an array of integers");
+      if (!v->IsArray()) return JS_THROW(TypeError, "applicationKey must be an array of integers");
       Local<Array> a = Local<Array>::Cast(v);
       application_key = new uint8_t[a->Length()];
       config.application_key_size = a->Length();
@@ -264,28 +244,22 @@ Handle<Value> Session::New(const Arguments& args) {
     // userAgent
     if (configuration->Has(String::New("userAgent"))) {
       Handle<Value> v = configuration->Get(String::New("userAgent"));
-      if (!v->IsString()) THROW_EXCEPTION(TypeError, "userAgent must be a string");
-      config.user_agent = ToCString(v);
-    } else {
-      config.user_agent = strdup("node-spotify");
+      String::Utf8Value vs(v);
+      config.user_agent = *vs;
     }
 
     // cacheLocation
     if (configuration->Has(String::New("cacheLocation"))) {
       Handle<Value> v = configuration->Get(String::New("cacheLocation"));
-      if (!v->IsString()) THROW_EXCEPTION(TypeError, "cacheLocation must be a string");
-      config.cache_location = ToCString(v);
-    } else {
-      config.cache_location = strdup(".spotify-cache");
+      String::Utf8Value vs(v);
+      config.cache_location = *vs;
     }
 
     // settingsLocation
     if (configuration->Has(String::New("settingsLocation"))) {
       Handle<Value> v = configuration->Get(String::New("settingsLocation"));
-      if (!v->IsString()) THROW_EXCEPTION(TypeError, "settingsLocation must be a string");
-      config.settings_location = ToCString(v);
-    } else {
-      config.settings_location = strdup(".spotify-settings");
+      String::Utf8Value vs(v);
+      config.settings_location = *vs;
     }
   }
 
@@ -311,17 +285,8 @@ Handle<Value> Session::New(const Arguments& args) {
   sp_session* session;
   sp_error error = sp_session_init(&config, &session);
 
-  // free temporary buffers in config
-  if (application_key) delete application_key;
-  #define F(_name_) if (config._name_) {\
-    delete config._name_; config._name_ = NULL; }
-  F(user_agent)
-  F(cache_location)
-  F(settings_location)
-  #undef F
-
   if (error != SP_ERROR_OK)
-    THROW_EXCEPTION(Error, sp_error_message(error));
+    return JS_THROW(Error, sp_error_message(error));
 
   s->session_ = session;
   s->main_thread_id_ = pthread_self();
@@ -332,15 +297,15 @@ Handle<Value> Session::New(const Arguments& args) {
 Handle<Value> Session::Login(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() != 3) THROW_EXCEPTION(TypeError, "login takes exactly 3 arguments");
-  if (!args[0]->IsString()) THROW_EXCEPTION(TypeError, "first argument must be a string");
-  if (!args[1]->IsString()) THROW_EXCEPTION(TypeError, "second argument must be a string");
-  if (!args[2]->IsFunction()) THROW_EXCEPTION(TypeError, "last argument must be a function");
+  if (args.Length() != 3) return JS_THROW(TypeError, "login takes exactly 3 arguments");
+  if (!args[0]->IsString()) return JS_THROW(TypeError, "first argument must be a string");
+  if (!args[1]->IsString()) return JS_THROW(TypeError, "second argument must be a string");
+  if (!args[2]->IsFunction()) return JS_THROW(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
 
-  const char* username = ToCString(args[0]);
-  const char* password = ToCString(args[1]);
+  String::Utf8Value username(args[0]);
+  String::Utf8Value password(args[1]);
 
   // increase refcount for our timer event
   ev_ref(EV_DEFAULT_UC);
@@ -348,8 +313,9 @@ Handle<Value> Session::Login(const Arguments& args) {
   // save login callback
   if (s->login_callback_) cb_destroy(s->login_callback_);
   s->login_callback_ = cb_persist(args[2]);
-  sp_session_login(s->session_, username, password);
-  delete username, password;
+
+  sp_session_login(s->session_, *username, *password);
+
   return Undefined();
 }
 
@@ -357,7 +323,7 @@ Handle<Value> Session::Logout(const Arguments& args) {
   HandleScope scope;
 
   if (args.Length() > 0 && !args[0]->IsFunction())
-    THROW_EXCEPTION(TypeError, "last argument must be a function");
+    return JS_THROW(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
 
@@ -373,10 +339,10 @@ Handle<Value> Session::Logout(const Arguments& args) {
 
 Handle<Value> Session::Search(const Arguments& args) {
   HandleScope scope;
-  if (args.Length() != 2) THROW_EXCEPTION(TypeError, "search takes exactly 2 arguments");
+  if (args.Length() != 2) return JS_THROW(TypeError, "search takes exactly 2 arguments");
   if (!args[0]->IsString() && !args[0]->IsObject())
-    THROW_EXCEPTION(TypeError, "first argument must be a string or an object");
-  if (!args[1]->IsFunction()) THROW_EXCEPTION(TypeError, "last argument must be a function");
+    return JS_THROW(TypeError, "first argument must be a string or an object");
+  if (!args[1]->IsFunction()) return JS_THROW(TypeError, "last argument must be a function");
 
   Session* s = Unwrap<Session>(args.This());
   const int kDefaultTrackOffset = 0;
@@ -386,7 +352,7 @@ Handle<Value> Session::Search(const Arguments& args) {
   const int kDefaultArtistOffset = 0;
   const int kDefaultArtistCount = 10;
 
-  const char *query = NULL;
+  Handle<Value> query;
   int track_offset;
   int track_count;
   int album_offset;
@@ -395,16 +361,14 @@ Handle<Value> Session::Search(const Arguments& args) {
   int artist_count;
   
   if (args[0]->IsString()) {
-    query = ToCString(args[0]);
+    query = args[0];
   } else if (args[0]->IsObject()) {
     Local<Object> opt = args[0]->ToObject();
-    Local<String> k = String::New("query");
+    Local<String> k = String::NewSymbol("query"); // todo: symbolize
 
-    if (opt->Has(k)) {
-      Handle<Value> v = opt->Get(k);
-      if (!v->IsString()) THROW_EXCEPTION(TypeError, "query must be a string");
-      query = ToCString(v);
-    }
+    if (!opt->Has(k))
+      return JS_THROW(TypeError, "missing required \"query\" parameter");
+    query = opt->Get(k);
 
     #define IOPT(_name_, _intvar_, _default_)\
       k = String::New(_name_);\
@@ -423,15 +387,15 @@ Handle<Value> Session::Search(const Arguments& args) {
   search_data_t *search_data = new search_data_t;
   search_data->session = s;
   search_data->callback = cb_persist(args[1]);
-  sp_search *search = sp_search_create(s->session_, query,
+  String::Utf8Value query_str(query);
+  sp_search *search = sp_search_create(s->session_, *query_str,
                                        track_offset, track_count,
                                        album_offset, album_count,
                                        artist_offset, artist_count,
                                        &SearchComplete, search_data);
-  delete query;
 
   if (!search)
-    THROW_EXCEPTION(Error, "libspotify internal error when requesting search");
+    return JS_THROW(Error, "libspotify internal error when requesting search");
 
   return Undefined();
 }

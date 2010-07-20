@@ -5,9 +5,6 @@
 
 #include <string.h>
 
-using namespace v8;
-using namespace node;
-
 Persistent<FunctionTemplate> SearchResult::constructor_template;
 
 // -----------------------------------------------------------------------------

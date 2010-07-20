@@ -1,28 +1,25 @@
 #ifndef SPOTIFY_SEARCH_H_
 #define SPOTIFY_SEARCH_H_
 
-#include <v8.h>
-#include <node.h>
-#include <node_events.h>
-#include <libspotify/api.h>
+#include "index.h"
 
-class SearchResult : public node::EventEmitter {
+class SearchResult : public EventEmitter {
 public:
-  static v8::Persistent<v8::FunctionTemplate> constructor_template;
+  static Persistent<FunctionTemplate> constructor_template;
   
-  static void Initialize(v8::Handle<v8::Object> target);
+  static void Initialize(Handle<Object> target);
   SearchResult(sp_search* search);
-  static v8::Handle<v8::Value> New(const v8::Arguments& args);
-  static v8::Local<v8::Object> New(sp_search *search);
+  static Handle<Value> New(const Arguments& args);
+  static Local<Object> New(sp_search *search);
 
-  static v8::Handle<v8::Value> LoadedGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> TracksGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> AlbumsGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> ArtistsGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> TotalTracksGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> QueryGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> DidYouMeanGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> URIGetter(v8::Local<v8::String> property, const v8::AccessorInfo& info);
+  static Handle<Value> LoadedGetter(Local<String> property, const AccessorInfo& info);
+  static Handle<Value> TracksGetter(Local<String> property, const AccessorInfo& info);
+  static Handle<Value> AlbumsGetter(Local<String> property, const AccessorInfo& info);
+  static Handle<Value> ArtistsGetter(Local<String> property, const AccessorInfo& info);
+  static Handle<Value> TotalTracksGetter(Local<String> property, const AccessorInfo& info);
+  static Handle<Value> QueryGetter(Local<String> property, const AccessorInfo& info);
+  static Handle<Value> DidYouMeanGetter(Local<String> property, const AccessorInfo& info);
+  static Handle<Value> URIGetter(Local<String> property, const AccessorInfo& info);
 protected:
   sp_search* search_;
 };

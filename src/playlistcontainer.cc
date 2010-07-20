@@ -1,25 +1,7 @@
 #include "playlistcontainer.h"
 #include "playlist.h"
 
-#include <v8.h>
-#include <node.h>
-#include <node_events.h>
-#include <libspotify/api.h>
-
-using namespace v8;
-using namespace node;
-
 Persistent<FunctionTemplate> PlaylistContainer::constructor_template;
-
-#define THROW_EXCEPTION(_type_, _msg_)\
-  return ThrowException(Exception::_type_(String::New(_msg_)))
-
-static inline char* ToCString(Handle<Value> value) {
-  Local<String> str = value->ToString();
-  char *p = new char[str->Utf8Length()];
-  str->WriteUtf8(p);
-  return p;
-}
 
 // -----------------------------------------------------------------------------
 // libspotify callbacks
@@ -191,24 +173,23 @@ Handle<Value> PlaylistContainer::Create(const Arguments& args) {
   HandleScope scope;
 
   if (args.Length() < 1)
-    THROW_EXCEPTION(TypeError, "search takes at least 1 argument");
+    return JS_THROW(TypeError, "search takes at least 1 argument");
   if (!args[0]->IsString())
-    THROW_EXCEPTION(TypeError, "first argument must be a string");
+    return JS_THROW(TypeError, "first argument must be a string");
   if (args.Length() > 1 && !args[1]->IsFunction())
-    THROW_EXCEPTION(TypeError, "last argument must be a function");
+    return JS_THROW(TypeError, "last argument must be a function");
 
   PlaylistContainer* s = Unwrap<PlaylistContainer>(args.This());
 
-  char *name = ToCString(args[0]);
+  String::Utf8Value name(args[0]);
   sp_playlist *playlist = sp_playlistcontainer_add_new_playlist(
     s->playlist_container_,
     //(*String::Utf8Value((args[0])->ToString()))
-    name
+    *name
   );
-  delete name;
 
   if (!playlist)
-    THROW_EXCEPTION(Error, "failed to create new playlist");
+    return JS_THROW(Error, "failed to create new playlist");
 
   // queue callback
   if (args.Length() > 1) {

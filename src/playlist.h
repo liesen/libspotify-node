@@ -1,18 +1,11 @@
 #ifndef SPOTIFY_PLAYLIST_H_
 #define SPOTIFY_PLAYLIST_H_
 
-#include <v8.h>
-#include <node.h>
-#include <node_events.h>
-#include <libspotify/api.h>
+#include "index.h"
 
-
-using namespace v8;
-using namespace node;
-
-class Playlist : public node::EventEmitter {
+class Playlist : public EventEmitter {
  public:
-  static void Initialize(v8::Handle<v8::Object> target);
+  static void Initialize(Handle<Object> target);
   
   Playlist(sp_playlist* playlist);
   ~Playlist();
@@ -29,7 +22,7 @@ class Playlist : public node::EventEmitter {
 
  protected:
   sp_playlist* playlist_;
-  static v8::Persistent<v8::FunctionTemplate> constructor_template;
+  static Persistent<FunctionTemplate> constructor_template;
 };
 
 #endif

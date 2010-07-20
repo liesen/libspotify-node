@@ -1,13 +1,5 @@
 #include "playlist.h"
 
-#include <v8.h>
-#include <node.h>
-#include <libspotify/api.h>
-#include <pthread.h>
-
-using namespace v8;
-using namespace node;
-
 Persistent<FunctionTemplate> Playlist::constructor_template;
 
 // -----------------------------------------------------------------------------

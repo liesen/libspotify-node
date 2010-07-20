@@ -1,8 +1,5 @@
 #include "stub.h"
 
-using namespace v8;
-using namespace node;
-
 Persistent<FunctionTemplate> Stub::constructor_template;
 
 // -----------------------------------------------------------------------------
