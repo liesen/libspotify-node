@@ -25,21 +25,18 @@ Handle<Value> Track::New(sp_track *track) {
   HandleScope scope;
   Local<Object> instance =
     constructor_template->GetFunction()->NewInstance(0, NULL);
-  Track *p = ObjectWrap::Unwrap<Track>(instance);
-  p->track_ = track;
+  Track *p = new Track(track);
+  (p)->Wrap(instance);
   if (p->track_) {
     sp_track_add_ref(p->track_);
     if (!p->SetupBackingTrack())
       return JS_THROW(Error, sp_error_message(sp_track_error(p->track_)));
   }
-  return instance;
+  return scope.Close(instance);
 }
 
 Handle<Value> Track::New(const Arguments& args) {
   HandleScope scope;
-  sp_track *t = NULL;
-  // todo: if called with a string argument, try to parse and load it as a link
-  (new Track(t))->Wrap(args.This());
   return args.This();
 }
 
@@ -51,8 +48,6 @@ bool Track::SetupBackingTrack() {
   case SP_ERROR_OK:
     break;
   case SP_ERROR_IS_LOADING:
-    // possible solution: nextTick -> check, .. until loaded
-    TODO("track is not yet loaded");
     return true;
   default:
     return false;
