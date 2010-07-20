@@ -38,12 +38,6 @@ Handle<Value> Track::New(sp_track *track) {
 Handle<Value> Track::New(const Arguments& args) {
   HandleScope scope;
   sp_track *t = NULL;
-  if (args.Length() > 0) {
-    // if a string is passed, it must be a valid link
-    if (args[0]->IsString()) {
-      sp_link * sp_link_create_from_string(const char *link);
-    }
-  }
   // todo: if called with a string argument, try to parse and load it as a link
   (new Track(t))->Wrap(args.This());
   return args.This();
