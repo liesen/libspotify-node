@@ -1,4 +1,5 @@
 #include "playlist.h"
+#include "track.h"
 #include "playlistcontainer.h"
 
 #include <map>
@@ -107,8 +108,7 @@ static sp_playlist_callbacks callbacks = {
 // Playlist implementation
 
 Playlist::Playlist(sp_playlist* playlist)
-  : node::EventEmitter()
-  , playlist_(playlist)
+  : EventEmitter(), playlist_(playlist)
 {
   if (playlist_) {
     sp_playlist_add_ref(playlist_);
@@ -152,6 +152,58 @@ Handle<Value> Playlist::New(const Arguments& args) {
   return args.This();
 }
 
+Handle<Value> Playlist::LengthGetter(Local<String> property,
+                                     const AccessorInfo& info) {
+  HandleScope scope;
+  Playlist* p = Unwrap<Playlist>(info.This());
+  int num_tracks = sp_playlist_num_tracks(p->playlist_);
+  return scope.Close(Integer::New(num_tracks));
+}
+
+Handle<Value> Playlist::TrackGetter(uint32_t index,
+                                    const AccessorInfo& info) {
+  HandleScope scope;
+  Playlist* p = Unwrap<Playlist>(info.This());
+
+  if (!sp_playlist_is_loaded(p->playlist_))
+    return Undefined();
+
+  sp_track* track = sp_playlist_track(p->playlist_, index);
+
+  if (track == NULL)
+    return Undefined();
+
+  return scope.Close(Track::New(track));
+}
+
+Handle<Value> Playlist::TrackSetter(uint32_t index,
+                                    Local<Value> value,
+                                    const AccessorInfo& info) {
+  return Undefined();
+}
+
+Handle<Boolean> Playlist::TrackDeleter(uint32_t index,
+                                       const AccessorInfo& info) {
+  return False();
+}
+
+Handle<Boolean> Playlist::TrackQuery(uint32_t index,
+                                     const AccessorInfo& info) {
+  HandleScope scope;
+  Playlist* p = Unwrap<Playlist>(info.This());
+
+  if (!sp_playlist_is_loaded(p->playlist_))
+    return False();
+
+  int num_tracks = sp_playlist_num_tracks(p->playlist_);
+  return scope.Close(Boolean::New(index < num_tracks));
+}
+
+Handle<Array> Playlist::TrackEnumerator(const AccessorInfo& info) {
+  HandleScope scope;
+  return scope.Close(Array::New());
+}
+
 Handle<Value> Playlist::LoadedGetter(Local<String> property,
                                      const AccessorInfo& info) {
   HandleScope scope;
@@ -169,7 +221,7 @@ Handle<Value> Playlist::NameGetter(Local<String> property,
   return scope.Close(String::New(sp_playlist_name(playlist)));
 }
 
-Handle<Value> Playlist::URIGetter(Local<String> property,
+Handle<Value> Playlist::UriGetter(Local<String> property,
                                   const AccessorInfo& info) {
   HandleScope scope;
   Playlist *p = Unwrap<Playlist>(info.This());
@@ -195,13 +247,13 @@ void Playlist::Initialize(Handle<Object> target) {
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::NewSymbol("loaded"), LoadedGetter);
   instance_t->SetAccessor(String::NewSymbol("name"), NameGetter);
-  instance_t->SetAccessor(String::NewSymbol("uri"), URIGetter);
-  /*instance_t->SetAccessor(NODE_PSYMBOL("length"), LengthGetter);
+  instance_t->SetAccessor(String::NewSymbol("uri"), UriGetter);
+  instance_t->SetAccessor(NODE_PSYMBOL("length"), LengthGetter);
   instance_t->SetIndexedPropertyHandler(TrackGetter,
                                         TrackSetter,
                                         TrackQuery,
                                         TrackDeleter,
-                                        TrackEnumerator);*/
+                                        TrackEnumerator);
 
   target->Set(String::New("Playlist"), constructor_template->GetFunction());
 }
