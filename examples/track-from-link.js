@@ -1,5 +1,5 @@
 /*
-  This example shows how to load a track from a link (URI or URL).
+  This example loads a track from a link (URI or URL).
   
   You can give a link as the first argument on the command line, or run the
   script without arguments to fetch a predefined track.
