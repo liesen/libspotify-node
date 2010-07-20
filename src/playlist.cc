@@ -11,18 +11,6 @@ typedef std::map<sp_playlist*, v8::Persistent<v8::Object> > PlaylistMap;
 static PlaylistMap playlist_cache_;
 
 // -----------------------------------------------------------------------------
-// internal helpers
-
-static const char *_PlaylistURI(sp_playlist *pl) {
-  static char uri_buf[256];
-  sp_link *link = sp_link_create_from_playlist(pl);
-  if (!link) return "?";
-  sp_link_as_string(link, uri_buf, sizeof(uri_buf));
-  sp_link_release(link);
-  return uri_buf;
-}
-
-// -----------------------------------------------------------------------------
 // libspotify callbacks
 
 static void TracksAdded(sp_playlist *playlist, sp_track *const *tracks,
