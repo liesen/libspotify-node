@@ -7,5 +7,6 @@ test*-private.js
 account.js
 /.spotify-cache
 /.spotify-settings
+/debug-*.js
 *.swp
 *.node
