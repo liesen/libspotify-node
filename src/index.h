@@ -13,6 +13,15 @@ using namespace v8;
 using namespace node;
 
 // -----------------------------------------------------------------------------
+// Constants
+
+enum MetadataUpdateType {
+  kMetadataUpdateTypeTrack = 0,
+  kMetadataUpdateTypeAlbum = 1,
+  kMetadataUpdateTypeArtist = 2,
+};
+
+// -----------------------------------------------------------------------------
 // Aiding construction of types
 
 // Property getter interface boilerplate
@@ -28,7 +37,12 @@ using namespace node;
 
 // Emitting WIP/development notes
 #define TODO(tmpl, ...)\
-  fprintf(stderr, "TODO [node-spotify %s:%d]: " tmpl "\n", \
+  fprintf(stderr, "TODO [node-spotify %s:%d] " tmpl "\n", \
+          __FILE__, __LINE__, ##__VA_ARGS__)
+
+// Dump a message to stderr
+#define DPRINTF(tmpl, ...)\
+  fprintf(stderr, "D [node-spotify %s:%d] " tmpl "\n", \
           __FILE__, __LINE__, ##__VA_ARGS__)
 
 // Throwing exceptions
