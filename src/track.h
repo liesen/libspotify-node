@@ -14,14 +14,10 @@ class Track : public EventEmitter {
   static Handle<Value> New(const Arguments& args);
   static Handle<Value> New(sp_track *track);
 
-  static Handle<Value> LoadedGetter(Local<String> property,
-                                    const AccessorInfo& info);
-  static Handle<Value> AlbumGetter(Local<String> property,
-                                   const AccessorInfo& info);
-  static Handle<Value> ArtistsGetter(Local<String> property,
-                                     const AccessorInfo& info);
-  static Handle<Value> URIGetter(Local<String> property,
-                                 const AccessorInfo& info);
+  GETTER_H(LoadedGetter);
+  GETTER_H(AlbumGetter);
+  GETTER_H(ArtistsGetter);
+  GETTER_H(URIGetter);
  protected:
   bool SetupBackingTrack();
   sp_track* track_;

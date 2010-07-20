@@ -84,8 +84,7 @@ bool Track::SetupBackingTrack() {
   return true;
 }
 
-Handle<Value> Track::LoadedGetter(Local<String> property,
-                                  const AccessorInfo& info) {
+GETTER_C(Track::LoadedGetter) {
   HandleScope scope;
   Track *p = Unwrap<Track>(info.This());
   return p->track_
@@ -93,8 +92,7 @@ Handle<Value> Track::LoadedGetter(Local<String> property,
     : Undefined();
 }
 
-Handle<Value> Track::AlbumGetter(Local<String> property,
-                                 const AccessorInfo& info) {
+GETTER_C(Track::AlbumGetter) {
   HandleScope scope;
   Track *p = Unwrap<Track>(info.This());
   if (!p->track_ || !sp_track_is_loaded(p->track_))
@@ -106,8 +104,7 @@ Handle<Value> Track::AlbumGetter(Local<String> property,
   return scope.Close(p->album_->handle_);
 }
 
-Handle<Value> Track::ArtistsGetter(Local<String> property,
-                                   const AccessorInfo& info) {
+GETTER_C(Track::ArtistsGetter) {
   HandleScope scope;
   Track *p = Unwrap<Track>(info.This());
   if (!p->track_ || !sp_track_is_loaded(p->track_))
@@ -122,8 +119,7 @@ Handle<Value> Track::ArtistsGetter(Local<String> property,
   scope.Close(array);
 }
 
-Handle<Value> Track::URIGetter(Local<String> property,
-                               const AccessorInfo& info) {
+GETTER_C(Track::URIGetter) {
   HandleScope scope;
   Track *p = Unwrap<Track>(info.This());
   if (!p->track_ || !sp_track_is_loaded(p->track_))
