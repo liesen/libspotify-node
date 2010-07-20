@@ -152,10 +152,6 @@ Handle<Value> Playlist::TrackGetter(uint32_t index,
                                     const AccessorInfo& info) {
   HandleScope scope;
   Playlist* p = Unwrap<Playlist>(info.This());
-
-  if (!sp_playlist_is_loaded(p->playlist_))
-    return Undefined();
-
   sp_track* track = sp_playlist_track(p->playlist_, index);
 
   if (track == NULL)
