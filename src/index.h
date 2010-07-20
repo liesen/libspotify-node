@@ -42,8 +42,11 @@ enum MetadataUpdateType {
 
 // Dump a message to stderr
 #define DPRINTF(tmpl, ...)\
-  fprintf(stderr, "D [node-spotify %s:%d] " tmpl "\n", \
-          __FILE__, __LINE__, ##__VA_ARGS__)
+  do {\
+    fprintf(stderr, "D [node-spotify %s:%d] " tmpl "\n", \
+            __FILE__, __LINE__, ##__VA_ARGS__);\
+    fflush(stderr);\
+  } while (0)
 
 // Throwing exceptions
 #define JS_THROW(t, s) ThrowException(Exception::t(String::New(s)))
@@ -65,4 +68,56 @@ static inline char* ToCString(Handle<Value> value) {
   return p;
 }
 
+// -----------------------------------------------------------------------------
+// Invoking a callback with an error
+
+inline Handle<Value> CallbackError(const Handle<Object> &context,
+                                   const Handle<Value> &callback,
+                                   const Handle<Value> &exc) {
+  Handle<Value> argv[] = { exc };
+  Function::Cast(*callback)->Call(context, 1, argv);
+  return Undefined();
+}
+
+inline Handle<Value> CallbackError(const Handle<Object> &context,
+                                   const Handle<Value> &callback,
+                                   const char *message) {
+  return CallbackError(context, callback,
+                       Exception::Error(String::New(message)) );
+}
+
+inline Handle<Value> CallbackError(const Handle<Object> &context,
+                                   const Handle<Value> &callback,
+                                   sp_error errcode) {
+  return CallbackError(context, callback,
+    Exception::Error(String::New(sp_error_message(errcode))) );
+}
+
+// -----------------------------------------------------------------------------
+// Invoking callback with an error or throwing an exception
+
+inline Handle<Value> CallbackOrThrowError(const Handle<Object> &context,
+                                          const Handle<Value> &callback,
+                                          const Handle<Value> &exc) {
+  if (callback.IsEmpty() || !callback->IsFunction()) {
+    return ThrowException(exc);
+  } else {
+    return CallbackError(context, callback, exc);
+  }
+}
+
+inline Handle<Value> CallbackOrThrowError(const Handle<Object> &context,
+                                          const Handle<Value> &callback,
+                                          const char *utf8str) {
+  return CallbackOrThrowError(context, callback,
+    Exception::Error(String::New(utf8str)));
+}
+
+inline Handle<Value> CallbackOrThrowError(const Handle<Object> &context,
+                                          const Handle<Value> &callback,
+                                          sp_error errcode) {
+  return CallbackOrThrowError(context, callback, sp_error_message(errcode));
+}
+
+// -----------------------------------------------------------------------------
 #endif // SPOTIFY_INDEX_H_
