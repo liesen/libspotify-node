@@ -27,7 +27,7 @@ Represents a session. You can think of a "session" as a logged in and running Sp
 
 > **Note:** Even though this API allows for virtually unlimited number of concurrent Session objects, it is still considered experimental because libspotify has not been extensively tested with session concurrency (i.e. there might be thread sync bugs lurking in the depts of libspotify).
 
-All methods except `login` require the session to be in a logged in state when called, or weird and highly unexpected things will happen.
+All methods except `login` require the session to be in a logged in state (`session.connectionState === "logged_in"`) when called, or weird and highly unexpected things will happen.
 
 ### spotify.Session.prototype.login(username, password, callback(err))
 
