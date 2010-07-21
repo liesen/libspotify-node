@@ -1,5 +1,6 @@
 var assert = require('assert');
 var sys = require('sys');
+
 var account = require('../account');
 var spotify = require('../spotify');
 
@@ -24,3 +25,8 @@ GLOBAL.createSession = function(dontForwardLogging, onsession) {
     onsession(session);
   });
 }
+
+process.on('uncaughtException', function (err) {
+  console.error(err.stack || err);
+  process.exit(2);
+});
