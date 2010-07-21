@@ -31,7 +31,7 @@ Fore more examples, have a look in the `examples` directory.
 
 ## Documentation
 
-See [doc/api.md](doc/api.md)
+See [doc/api.md](http://github.com/liesen/libspotify-node/blob/master/doc/api.md)
 
 ## MIT license
 
