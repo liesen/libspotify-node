@@ -1,19 +1,33 @@
 # node-spotify
 
-[libspotify](http://developer.spotify.com/en/libspotify/) bindings for nodejs.
+[libspotify](http://developer.spotify.com/en/libspotify/) bindings for [nodejs](http://nodejs.org/).
 
 > **Warning:** This is software under early development. Many features are missing and the API might change at any time without notification.
 
 ## Building & installation
 
-    node-waf configure
-    node-waf build
+    node-waf configure build test
     sudo node-waf install
 
 ### Requirements
 
-- [Nodejs](http://nodejs.org/) >= 0.1.94
-- [libspotify](http://developer.spotify.com/en/libspotify/) >= 0.0.4
+- [Nodejs](http://nodejs.org/) >= 0.1.100
+- [libspotify](http://developer.spotify.com/en/libspotify/) == 0.0.4
+
+## Example
+
+A simple example where we log in, search for `"album:belle"`, dump the results to stdout and finally log out:
+
+    var session = new Session({applicationKey: myAppkey});
+    session.login("username", "password", function (err) {
+      if (err) return sys.error(err.stack || err);
+      session.search('album:belle', function(err, result){
+        sys.puts(sys.inspect(result));
+        session.logout();
+      })
+    });
+
+Fore more examples, have a look in the `examples` directory.
 
 ## MIT license
 
