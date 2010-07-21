@@ -50,6 +50,8 @@ Sign out of Spotify. The optional callback is called once all finalization code 
       });
     });
 
+Note that your program will not exit by itself until you have logged out a logged in session (because the session is active), so remember to call `logout` when you are done.
+
 ### spotify.Session.prototype.search(query, callback(err, result))
 
 Search the Spotify catalouge.
