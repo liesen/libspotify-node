@@ -24,16 +24,23 @@ def kill_flag(self):
 
 def set_options(opts):
   opts.tool_options('compiler_cxx')
+  opts.add_option('--debug', action='store_true', default=False,
+                 help='build debug version')
 
 def configure(conf):
+  import Options
   # todo: add --debug flag so we can set NDEBUG conditionally, omitting asserts.
   conf.check_tool('compiler_cxx')
   conf.check_tool('node_addon')
-
   if PLATFORM_IS_DARWIN:
-    conf.env.append_value('LINKFLAGS', ['-framework', 'libspotify', '-dynamiclib'])
-
+    conf.env.append_value('LINKFLAGS', ['-framework', 'libspotify',
+                                        '-dynamiclib'])
   conf.env.append_value('LINKFLAGS', [os.getcwdu()+'/src/atomic_queue.o'])
+  if Options.options.debug:
+    conf.env['CXXFLAGS'] = list(conf.env['CXXFLAGS_DEBUG'])
+  else:
+    conf.env['CXXFLAGS'] = list(conf.env['CXXFLAGS_RELEASE'])
+    conf.env.append_value('CXXFLAGS', ['-DNDEBUG'])
 
 def lint(ctx):
   Utils.exec_command('python cpplint.py --verbose=0 --filter='+
@@ -50,14 +57,17 @@ def build(ctx):
   task = ctx.new_task_gen('cxx', 'shlib', 'node_addon')
   task.target = 'binding'
   task.source = ctx.path.ant_glob('src/*.cc')
-
   if not PLATFORM_IS_DARWIN:
     task.lib = 'libspotify'
-
   # TODO: fix this ugly hack:
   from subprocess import Popen, PIPE
   Popen(['cc','-c','-o','src/atomic_queue.o','src/atomic_queue.s'],
     stderr=PIPE).communicate()[1]
+
+def test(ctx):
+  status = Utils.exec_command('node test/all.js')
+  if status != 0:
+    raise Utils.WafError('tests failed')
 
 def shutdown():
   # HACK to get binding.node out of build directory
