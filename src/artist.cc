@@ -7,8 +7,7 @@ Persistent<FunctionTemplate> Artist::constructor_template;
 
 Artist::Artist(sp_artist *artist)
   : node::EventEmitter()
-  , artist_(artist)
-{
+  , artist_(artist) {
 }
 
 Artist::~Artist() {

@@ -168,8 +168,7 @@ Session::Session(sp_session* session)
     , main_thread_id_((pthread_t) -1)
     , login_callback_(NULL)
     , logout_callback_(NULL)
-    , playlist_container_(NULL)
-{
+    , playlist_container_(NULL) {
   nt_atomic_queue_init(&log_messages_q_);
 }
 

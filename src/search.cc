@@ -11,9 +11,8 @@ Persistent<FunctionTemplate> SearchResult::constructor_template;
 // SearchResult implementation
 
 SearchResult::SearchResult(sp_search *search)
-  : node::EventEmitter()
-  , search_(search)
-{
+    : node::EventEmitter()
+    , search_(search) {
 }
 
 Local<Object> SearchResult::New(sp_search *search) {

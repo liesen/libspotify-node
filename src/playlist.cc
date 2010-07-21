@@ -96,8 +96,8 @@ static sp_playlist_callbacks callbacks = {
 // Playlist implementation
 
 Playlist::Playlist(sp_playlist* playlist)
-  : EventEmitter(), playlist_(playlist)
-{
+    : EventEmitter()
+    , playlist_(playlist) {
   if (playlist_) {
     sp_playlist_add_ref(playlist_);
     sp_playlist_add_callbacks(playlist_, &callbacks, this);

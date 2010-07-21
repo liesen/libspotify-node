@@ -9,8 +9,7 @@ Persistent<FunctionTemplate> PlaylistContainer::constructor_template;
 static void PlaylistAdded(sp_playlistcontainer *pc,
                           sp_playlist *playlist,
                           int position,
-                          void *userdata)
-{
+                          void *userdata) {
   HandleScope scope;
   // this is called on the main thread
   PlaylistContainer* p = static_cast<PlaylistContainer*>(userdata);
@@ -35,8 +34,7 @@ static void PlaylistAdded(sp_playlistcontainer *pc,
 static void PlaylistRemoved(sp_playlistcontainer *pc,
                             sp_playlist *playlist,
                             int old_position,
-                            void *userdata)
-{
+                            void *userdata) {
   // this is called on the main thread
   PlaylistContainer* p = static_cast<PlaylistContainer*>(userdata);
   Handle<Value> argv[] = {
@@ -50,8 +48,7 @@ static void PlaylistMoved(sp_playlistcontainer *pc,
                             sp_playlist *playlist,
                             int old_position,
                             int new_position,
-                            void *userdata)
-{
+                            void *userdata) {
   // this is called on the main thread
   PlaylistContainer* p = static_cast<PlaylistContainer*>(userdata);
   Handle<Value> argv[] = {
