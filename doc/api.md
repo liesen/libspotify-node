@@ -16,7 +16,7 @@ Which Spotify API version this module is compatible with. I.e. `2`.
 
 ## spotify.Session(configuration)
 
-Represents a session. Can be compared with a regular logged in (running) Spotify desktop client.
+Represents a session. You can think of a "session" as a logged in and running Spotify client.
 
     var session = new spotify.Session({
       applicationKey: appkey,    // [required] array of ints
