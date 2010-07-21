@@ -29,6 +29,10 @@ A simple example where we log in, search for `"album:belle"`, dump the results t
 
 Fore more examples, have a look in the `examples` directory.
 
+## Documentation
+
+See [doc/api.md](doc/api.md)
+
 ## MIT license
 
 Copyright (c) 2010 Johan Liesén & Rasmus Andersson <http://hunch.se/>
