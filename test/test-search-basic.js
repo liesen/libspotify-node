@@ -11,10 +11,11 @@ createSession(function (session) {
     assert.strictEqual(typeof result.uri, "string");
     assert.strictEqual(result.uri, "spotify:search:"+query);
     assert.ok(Array.isArray(result.tracks));
-    sys.puts(result.tracks[0].uri);
-    sys.puts(result.tracks[0].uri);
     assert.ok(Array.isArray(result.albums));
     assert.ok(Array.isArray(result.artists));
+
+    if (result.tracks.length)
+      sys.puts('first track link: '+result.tracks[0].uri);
 
     session.logout(assert.ifError);
   })
