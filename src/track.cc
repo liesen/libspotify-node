@@ -2,7 +2,7 @@
 #include "album.h"
 #include "artist.h"
 
-Persistent<FunctionTemplate> Track::constructor_template_;
+Persistent<FunctionTemplate> Track::constructor_template;
 
 // -----------------------------------------------------------------------------
 // Track implementation
@@ -22,7 +22,7 @@ Track::~Track() {
 
 Handle<Value> Track::New(sp_track *track) {
   HandleScope scope;
-  Local<Function> constructor = constructor_template_->GetFunction();
+  Local<Function> constructor = constructor_template->GetFunction();
   Local<Object> instance = constructor->NewInstance(0, NULL);
   Track *p = new Track(track);
   p->Wrap(instance);
@@ -135,24 +135,24 @@ Handle<Value> Track::UriGetter(Local<String> property,
 
   const int kUriBufferLen = 40;  // spotify:track:0EcVDS2dfZR5RytFhFOtYH
   char uri_buf[kUriBufferLen];
-  sp_link_as_string(link, uri_buf, kUriBufferLen);
+  int uri_len = sp_link_as_string(link, uri_buf, kUriBufferLen);
   sp_link_release(link);
-  return scope.Close(String::New(uri_buf));
+  return scope.Close(String::New(uri_buf, uri_len));
 }
 
 void Track::Initialize(Handle<Object> target) {
   HandleScope scope;
   Local<FunctionTemplate> t = FunctionTemplate::New(New);
-  constructor_template_ = Persistent<FunctionTemplate>::New(t);
-  constructor_template_->SetClassName(String::NewSymbol("Track"));
-  constructor_template_->Inherit(EventEmitter::constructor_template);
+  constructor_template = Persistent<FunctionTemplate>::New(t);
+  constructor_template->SetClassName(String::NewSymbol("Track"));
+  constructor_template->Inherit(EventEmitter::constructor_template);
 
-  Local<ObjectTemplate> instance_t = constructor_template_->InstanceTemplate();
+  Local<ObjectTemplate> instance_t = constructor_template->InstanceTemplate();
   instance_t->SetInternalFieldCount(1);
   instance_t->SetAccessor(String::New("loaded"), LoadedGetter);
   instance_t->SetAccessor(String::New("album"), AlbumGetter);
   instance_t->SetAccessor(String::New("artists"), ArtistsGetter);
   instance_t->SetAccessor(String::New("uri"), UriGetter);
 
-  target->Set(String::New("Track"), constructor_template_->GetFunction());
+  target->Set(String::New("Track"), constructor_template->GetFunction());
 }

@@ -7,6 +7,8 @@ class Album;
 
 class Track : public EventEmitter {
  public:
+  static Persistent<FunctionTemplate> constructor_template;
+
   static void Initialize(Handle<Object> target);
 
   explicit Track(sp_track *track);
@@ -21,7 +23,6 @@ class Track : public EventEmitter {
   GETTER_H(UriGetter);
  protected:
   bool SetupBackingTrack();
-  static Persistent<FunctionTemplate> constructor_template_;
   sp_track* track_;
   Album *album_;
 };
