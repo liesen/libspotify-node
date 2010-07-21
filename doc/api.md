@@ -56,7 +56,7 @@ Note that your program will not exit by itself until you have logged out a logge
 
 Search the Spotify catalouge.
 
-`query` can be either a string (search query) or an object:
+`query` can be either an object:
 
     var query = {
       query: "album:belle", // [required] query string
@@ -68,6 +68,13 @@ Search the Spotify catalouge.
       artistCount:  3       // [optional] defaults to 10
     };
     session.search(query, function(err, result){
+      if (err) throw err;
+      sys.puts(sys.inspect(result.tracks));
+    });
+
+...or it can be a simple string:
+
+    session.search("album:belle", function(err, result){
       if (err) throw err;
       sys.puts(sys.inspect(result.tracks));
     });
