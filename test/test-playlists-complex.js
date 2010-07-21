@@ -11,6 +11,7 @@ createSession(true, function (session) {
       progress = 0; // 1 for "load" event;
 
   function finalize() {
+    sys.puts("");
     assert.equal(loadedPlaylistsCounter, session.playlists.length);
     session.logout(assert.ifError);
   }
