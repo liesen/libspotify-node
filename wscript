@@ -5,12 +5,21 @@ import os
 import os.path as path
 import platform
 
-
 srcdir = "."
 blddir = 'build'
 VERSION = '0.0.1'
 
 PLATFORM_IS_DARWIN = platform.platform().find('Darwin') == 0
+
+jobs=1
+if os.environ.has_key('JOBS'):
+  jobs = int(os.environ['JOBS'])
+else:
+  try:
+    import multiprocessing
+    jobs = multiprocessing.cpu_count()
+  except:
+    pass
 
 # OS X dylib linker fix
 from TaskGen import feature, after
@@ -53,6 +62,7 @@ def lint(ctx):
     ' $(find src \! -name queue.h -name *.h)')
 
 def build(ctx):
+  Options.options.jobs = jobs
   ctx.add_pre_fun(lint)
   task = ctx.new_task_gen('cxx', 'shlib', 'node_addon')
   task.target = 'binding'
