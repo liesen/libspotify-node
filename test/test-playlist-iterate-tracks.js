@@ -16,7 +16,7 @@ createSession(function (session) {
           sys.puts(sys.inspect(this[0]));
         }
 
-        session.logout();
+        session.logout(function() { console.log('Logged out'); });
       }
 
       this[0].addListener('updated', f); 

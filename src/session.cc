@@ -40,18 +40,18 @@ static void NotifyMainThread(sp_session* session) {
   // query sp_session_process_events, which is handled by
   // Session::ProcessEvents. ev_async_send queues a call on the main ev runloop.
   Session* s = static_cast<Session*>(sp_session_userdata(session));
-  ev_async_send(EV_DEFAULT_UC_ static_cast<ev_async*>(&s->runloop_async_));
+  ev_async_send(EV_DEFAULT_UC_ s->runloop_async_);
 }
 
 void Session::ProcessEvents() {
   int timeout = 0;
-  ev_timer_stop(EV_DEFAULT_UC_ static_cast<ev_timer*>(&runloop_timer_));
+  ev_timer_stop(EV_DEFAULT_UC_ runloop_timer_);
 
   if (session_)
     sp_session_process_events(session_, &timeout);
 
-  ev_timer_set(static_cast<ev_timer*>(&runloop_timer_), timeout / 1000.0, 0.0);
-  ev_timer_start(EV_DEFAULT_UC_ static_cast<ev_timer*>(&runloop_timer_));
+  ev_timer_set(runloop_timer_, timeout / 1000.0, 0.0);
+  ev_timer_start(EV_DEFAULT_UC_ runloop_timer_);
 }
 
 void Session::DequeueLogMessages() {
@@ -83,7 +83,7 @@ static void LogMessage(sp_session* session, const char* data) {
     nt_atomic_enqueue(&s->log_messages_q_, msg, offsetof(log_message_t, next));
     // Signal we need to dequeue the message queue (handled by
     // SpotifyRunloopAsyncLogMessage).
-    ev_async_send(EV_DEFAULT_UC_ static_cast<ev_async*>(&s->logmsg_async_));
+    ev_async_send(EV_DEFAULT_UC_ s->logmsg_async_);
   }
 }
 
@@ -170,11 +170,15 @@ Session::Session(sp_session* session)
     , logout_callback_(NULL)
     , playlist_container_(NULL) {
   nt_atomic_queue_init(&log_messages_q_);
+
+  runloop_timer_ = new ev_timer;
+  runloop_async_ = new ev_async;
+  logmsg_async_ = new ev_async;
 }
 
 Session::~Session() {
-  ev_timer_stop(EV_DEFAULT_UC_ static_cast<ev_timer*>(&runloop_timer_));
-  ev_async_stop(EV_DEFAULT_UC_ static_cast<ev_async*>(&runloop_async_));
+  ev_timer_stop(EV_DEFAULT_UC_ runloop_timer_);
+  ev_async_stop(EV_DEFAULT_UC_ runloop_async_);
   this->DequeueLogMessages();
 
   if (playlist_container_) {
@@ -192,6 +196,8 @@ Session::~Session() {
     cb_destroy(logout_callback_);
     logout_callback_ = NULL;
   }
+
+  delete runloop_timer_, runloop_async_, logmsg_async_;
 }
 
 Handle<Value> Session::New(const Arguments& args) {
@@ -270,25 +276,22 @@ Handle<Value> Session::New(const Arguments& args) {
   }
 
   // ev_async for libspotify background thread to invoke processing on main
-  s->runloop_async_.data = s;
-  ev_async_init(static_cast<ev_async*>(&s->runloop_async_),
-    SpotifyRunloopAsyncProcess);
-  ev_async_start(EV_DEFAULT_UC_ static_cast<ev_async*>(&s->runloop_async_));
+  s->runloop_async_->data = s;
+  ev_async_init(s->runloop_async_, SpotifyRunloopAsyncProcess);
+  ev_async_start(EV_DEFAULT_UC_ s->runloop_async_);
   ev_unref(EV_DEFAULT_UC); // don't let a lingering async ev keep the main loop
 
   // ev_timer for triggering libspotify periodic processing
-  s->runloop_timer_.data = s;
-  ev_timer_init(static_cast<ev_timer*>(&s->runloop_timer_),
-    SpotifyRunloopTimerProcess, 60.0, 0.0);
+  s->runloop_timer_->data = s;
+  ev_timer_init(s->runloop_timer_, SpotifyRunloopTimerProcess, 60.0, 0.0);
   ev_unref(EV_DEFAULT_UC);
   // Note: No need to start the timer as it's started by first invocation after
   // NotifyMainThread
 
   // ev_async for libspotify background thread to emit log message on main
-  s->logmsg_async_.data = s;
-  ev_async_init(static_cast<ev_async*>(&s->logmsg_async_),
-    SpotifyRunloopAsyncLogMessage);
-  ev_async_start(EV_DEFAULT_UC_ static_cast<ev_async*>(&s->logmsg_async_));
+  s->logmsg_async_->data = s;
+  ev_async_init(s->logmsg_async_, SpotifyRunloopAsyncLogMessage);
+  ev_async_start(EV_DEFAULT_UC_ s->logmsg_async_);
   ev_unref(EV_DEFAULT_UC); // don't let a lingering async ev keep the main loop
 
   sp_session* session;

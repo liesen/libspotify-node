@@ -124,6 +124,7 @@ Handle<Value> Track::UriGetter(Local<String> property,
                                const AccessorInfo& info) {
   HandleScope scope;
   Track *p = Unwrap<Track>(info.This());
+  fprintf(stderr, "UriGetter\n");
 
   if (!p->track_ || !sp_track_is_loaded(p->track_))
     return Undefined();
@@ -137,7 +138,9 @@ Handle<Value> Track::UriGetter(Local<String> property,
   char uri_buf[kUriBufferLen];
   int uri_len = sp_link_as_string(link, uri_buf, kUriBufferLen);
   sp_link_release(link);
-  return scope.Close(String::New(uri_buf, uri_len));
+  Local<String> uri = String::New(uri_buf, uri_len);
+  info.This()->ForceSet(property, uri, ReadOnly);
+  return scope.Close(uri);
 }
 
 void Track::Initialize(Handle<Object> target) {

@@ -14,12 +14,15 @@ GLOBAL.createSession = function(dontForwardLogging, onsession) {
     onsession = dontForwardLogging;
     dontForwardLogging = false;
   }
+
   var session = new spotify.Session({applicationKey: account.applicationKey});
+
   if (!dontForwardLogging) {
-    session.addListener('logMessage', function(m){
-      sys.log(m.substr(0,m.length-1));
+    session.on('logMessage', function (message) {
+      sys.log(message.substr(0, message.length - 1));
     });
   }
+
   session.login(account.username, account.password, function (err) {
     assert.ifError(err);
     onsession(session);

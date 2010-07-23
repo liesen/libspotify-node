@@ -38,11 +38,11 @@ class Session : public node::EventEmitter {
   v8::Persistent<v8::Object> *playlist_container_;
 
   // Node-Spotify runloop glue
-  ev_timer runloop_timer_;
-  ev_async runloop_async_;
+  ev_timer* runloop_timer_;
+  ev_async* runloop_async_;
 
   // Spotify background thread-to-node-main glue
-  ev_async  logmsg_async_;
+  ev_async* logmsg_async_;
 
   // log messages delivered from a background thread
   nt_atomic_queue  log_messages_q_;
