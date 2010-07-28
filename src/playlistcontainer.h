@@ -2,15 +2,9 @@
 #define SPOTIFY_PLAYLISTCONTAINER_H_
 
 #include "index.h"
-#include "queue.h"
 
-typedef struct create_callback_entry {
-  TAILQ_ENTRY(create_callback_entry) link;
-  sp_playlist *playlist;
-  v8::Persistent<v8::Function> *callback;
-} create_callback_entry_t;
-TAILQ_HEAD(create_callback_queue, create_callback_entry);
-typedef struct create_callback_queue create_callback_queue_t;
+#include <map>
+#include <list>
 
 class PlaylistContainer : public node::EventEmitter {
  public:
@@ -20,7 +14,6 @@ class PlaylistContainer : public node::EventEmitter {
   static void Initialize(v8::Handle<v8::Object> target);
 
   static v8::Handle<v8::Value> New(sp_playlistcontainer* playlist_container);
-  static v8::Handle<v8::Value> New(const v8::Arguments& args);
 
   static v8::Handle<v8::Value> LengthGetter(v8::Local<v8::String> property,
                                             const v8::AccessorInfo& info);
@@ -35,13 +28,18 @@ class PlaylistContainer : public node::EventEmitter {
                                                const v8::AccessorInfo& info);
   static v8::Handle<v8::Array> PlaylistEnumerator(const v8::AccessorInfo& info);
 
-
+  // create('playlist name', function (playlist) { ...  Creates and adds a
+  // playlist. Callback invoked when playlist is /added/ to container
   static v8::Handle<v8::Value> Create(const v8::Arguments& args);
 
-  sp_playlistcontainer* playlist_container_;
-  create_callback_queue_t create_callback_queue_;
+  // remove(playlist)  Removes a playlist
+  static v8::Handle<v8::Value> Remove(const v8::Arguments& args);
 
-  int num_playlists();
+  sp_playlistcontainer* playlist_container_;
+
+  std::list<std::pair<sp_playlist*, Persistent<Function>*> > create_callback_queue_;
+
+  int NumPlaylists();
 
   static v8::Persistent<v8::FunctionTemplate> constructor_template;
 };

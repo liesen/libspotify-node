@@ -2,9 +2,10 @@
 #define SPOTIFY_SESSION_H_
 
 #include "index.h"
-#include "atomic_queue.h"
 #include "callback_queue.h"
 #include "playlistcontainer.h"
+
+#include <queue>
 
 class Session : public node::EventEmitter {
  public:
@@ -44,8 +45,8 @@ class Session : public node::EventEmitter {
   // Spotify background thread-to-node-main glue
   ev_async* logmsg_async_;
 
-  // log messages delivered from a background thread
-  nt_atomic_queue  log_messages_q_;
+  // Log messages delivered from a background thread
+  std::queue<const char*> log_message_queue_;
 
   // queued callbacks waiting for metadata_update events for particular objects
   CallbackQueue  metadata_update_queue_;

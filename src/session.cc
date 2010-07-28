@@ -55,13 +55,12 @@ void Session::ProcessEvents() {
 }
 
 void Session::DequeueLogMessages() {
-  log_message_t *msg;
-  while (msg = static_cast<log_message_t*>(nt_atomic_dequeue(&log_messages_q_,
-    offsetof(log_message_t, next)))) {
-    Local<Value> argv[] = { String::New(msg->message) };
+  while (!log_message_queue_.empty()) {
+    const char* message = log_message_queue_.front();
+    log_message_queue_.pop();
+    Local<Value> argv[] = { String::New(message) };
     Emit(log_message_symbol, 1, argv);
-    delete msg->message;
-    delete msg;
+    delete message;
   }
 }
 
@@ -78,9 +77,13 @@ static void LogMessage(sp_session* session, const char* data) {
     s->Emit(log_message_symbol, 1, argv);
   } else {
     // Called from a background thread -- queue and notify
-    log_message_t *msg = new log_message_t;
-    msg->message = (const char *)strdup(data);
-    nt_atomic_enqueue(&s->log_messages_q_, msg, offsetof(log_message_t, next));
+    const char* message = strdup(data);
+
+    if (message == NULL)
+      return;
+
+    s->log_message_queue_.push(message);
+
     // Signal we need to dequeue the message queue (handled by
     // SpotifyRunloopAsyncLogMessage).
     ev_async_send(EV_DEFAULT_UC_ s->logmsg_async_);
@@ -169,8 +172,6 @@ Session::Session(sp_session* session)
     , login_callback_(NULL)
     , logout_callback_(NULL)
     , playlist_container_(NULL) {
-  nt_atomic_queue_init(&log_messages_q_);
-
   runloop_timer_ = new ev_timer;
   runloop_async_ = new ev_async;
   logmsg_async_ = new ev_async;

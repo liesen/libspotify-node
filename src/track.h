@@ -21,9 +21,10 @@ class Track : public EventEmitter {
   GETTER_H(AlbumGetter);
   GETTER_H(ArtistsGetter);
   GETTER_H(UriGetter);
+
+  sp_track* track_;
  protected:
   bool SetupBackingTrack();
-  sp_track* track_;
   Album *album_;
 };
 

@@ -37,14 +37,13 @@ def set_options(opts):
                  help='build debug version')
 
 def configure(conf):
-  import Options
   # todo: add --debug flag so we can set NDEBUG conditionally, omitting asserts.
   conf.check_tool('compiler_cxx')
   conf.check_tool('node_addon')
+
   if PLATFORM_IS_DARWIN:
     conf.env.append_value('LINKFLAGS', ['-framework', 'libspotify',
                                         '-dynamiclib'])
-  conf.env.append_value('LINKFLAGS', [os.getcwdu()+'/src/atomic_queue.o'])
   if Options.options.debug:
     conf.env['CXXFLAGS'] = list(conf.env['CXXFLAGS_DEBUG'])
   else:
@@ -58,8 +57,7 @@ def lint(ctx):
     '-build/include,' +       # lint is run from outside src
     '-build/namespaces,' +    # we are not building a C++ API
     '-whitespace/comments,' +
-    ' src/*.cc' +
-    ' $(find src \! -name queue.h -name *.h)')
+    ' src/*.cc')
 
 def build(ctx):
   Options.options.jobs = jobs
