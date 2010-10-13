@@ -11,16 +11,6 @@ VERSION = '0.0.1'
 
 PLATFORM_IS_DARWIN = platform.platform().find('Darwin') == 0
 
-jobs=1
-if os.environ.has_key('JOBS'):
-  jobs = int(os.environ['JOBS'])
-else:
-  try:
-    import multiprocessing
-    jobs = multiprocessing.cpu_count()
-  except:
-    pass
-
 # OS X dylib linker fix
 from TaskGen import feature, after
 @feature('cshlib')
@@ -34,7 +24,7 @@ def kill_flag(self):
 def set_options(opts):
   opts.tool_options('compiler_cxx')
   opts.add_option('--debug', action='store_true', default=False,
-                 help='build debug version')
+                  help='build debug version')
 
 def configure(conf):
   # todo: add --debug flag so we can set NDEBUG conditionally, omitting asserts.
@@ -60,17 +50,12 @@ def lint(ctx):
     ' src/*.cc')
 
 def build(ctx):
-  Options.options.jobs = jobs
   ctx.add_pre_fun(lint)
   task = ctx.new_task_gen('cxx', 'shlib', 'node_addon')
   task.target = 'binding'
   task.source = ctx.path.ant_glob('src/*.cc')
   if not PLATFORM_IS_DARWIN:
     task.lib = 'libspotify'
-  # TODO: fix this ugly hack:
-  from subprocess import Popen, PIPE
-  Popen(['cc','-c','-o','src/atomic_queue.o','src/atomic_queue.s'],
-    stderr=PIPE).communicate()[1]
 
 def test(ctx):
   status = Utils.exec_command('node test/all.js')
@@ -81,7 +66,6 @@ def shutdown():
   # HACK to get binding.node out of build directory
   if Options.commands['clean']:
     if path.exists('spotify/binding.node'): os.unlink('spotify/binding.node')
-    if path.exists('src/atomic_queue.o'): os.unlink('src/atomic_queue.o')
   else:
     if path.exists('build/default/binding.node'):
       copy('build/default/binding.node', 'spotify/binding.node')
