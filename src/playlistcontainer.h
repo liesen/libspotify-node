@@ -24,7 +24,7 @@ class PlaylistContainer : public node::EventEmitter {
                                               const v8::AccessorInfo& info);
   static v8::Handle<v8::Boolean> PlaylistDeleter(uint32_t index,
                                                  const v8::AccessorInfo& info);
-  static v8::Handle<v8::Boolean> PlaylistQuery(uint32_t index,
+  static v8::Handle<v8::Integer> PlaylistQuery(uint32_t index,
                                                const v8::AccessorInfo& info);
   static v8::Handle<v8::Array> PlaylistEnumerator(const v8::AccessorInfo& info);
 

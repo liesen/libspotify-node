@@ -189,16 +189,20 @@ Handle<Boolean> Playlist::TrackDeleter(uint32_t index,
   return False();
 }
 
-Handle<Boolean> Playlist::TrackQuery(uint32_t index,
+Handle<Integer> Playlist::TrackQuery(uint32_t index,
                                      const AccessorInfo& info) {
   HandleScope scope;
   Playlist* p = Unwrap<Playlist>(info.This());
 
   if (!p->IsLoaded())
-    return False();
+    return Handle<Integer>();
 
   int num_tracks = sp_playlist_num_tracks(p->playlist_);
-  return scope.Close(Boolean::New(index < num_tracks));
+
+  if (index >= num_tracks)
+    return Handle<Integer>();
+
+  return scope.Close(Integer::New(None));
 }
 
 Handle<Array> Playlist::TrackEnumerator(const AccessorInfo& info) {

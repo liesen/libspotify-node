@@ -32,7 +32,7 @@ class Playlist : public node::EventEmitter {
   static v8::Handle<v8::Boolean> TrackDeleter(uint32_t index,
                                               const v8::AccessorInfo& info);
 
-  static v8::Handle<v8::Boolean> TrackQuery(uint32_t index,
+  static v8::Handle<v8::Integer> TrackQuery(uint32_t index,
                                             const v8::AccessorInfo& info);
 
   static v8::Handle<v8::Array> TrackEnumerator(const v8::AccessorInfo& info);

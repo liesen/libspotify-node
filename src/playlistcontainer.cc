@@ -144,12 +144,16 @@ Handle<Boolean> PlaylistContainer::PlaylistDeleter(uint32_t index,
 }
 
 
-Handle<Boolean> PlaylistContainer::PlaylistQuery(uint32_t index,
+Handle<Integer> PlaylistContainer::PlaylistQuery(uint32_t index,
                                                  const AccessorInfo& info) {
   HandleScope scope;
   PlaylistContainer* pc = Unwrap<PlaylistContainer>(info.This());
   int num_playlists = pc->NumPlaylists();
-  return scope.Close(Boolean::New(index < num_playlists));
+
+  if (index < num_playlists)
+    return scope.Close(Integer::New(None));
+
+  return Handle<Integer>();
 }
 
 Handle<Array> PlaylistContainer::PlaylistEnumerator(const AccessorInfo& info) {
