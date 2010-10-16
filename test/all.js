@@ -33,9 +33,9 @@ function runNext() {
       process.stdout.write(data);
   });
   child.stderr.on('data', function (data) {
-    if (/^execvp\(\)/.test(data.asciiSlice(0,data.length))) {
+    if (data.length >= 7 && data.toString('ascii', 0, 7) === 'execvp(') {
       console.error('>>> fail '+fn+' -- execvp('+sys.inspect(nodebin)+
-        ', '+sys.inspect(args)+') failed: '+data);
+        ', '+sys.inspect(args)+') failed: '+data.toString('utf8'));
     } else {
       stderrWrite(data);
     }
