@@ -10,15 +10,17 @@ Persistent<FunctionTemplate> SearchResult::constructor_template;
 // -----------------------------------------------------------------------------
 // SearchResult implementation
 
-SearchResult::SearchResult(sp_search *search)
+SearchResult::SearchResult(sp_session* session, sp_search *search)
     : node::EventEmitter()
+    , session_(session)
     , search_(search) {
 }
 
-Local<Object> SearchResult::New(sp_search *search) {
+Local<Object> SearchResult::New(sp_session* session, sp_search *search) {
   Local<Object> instance =
     constructor_template->GetFunction()->NewInstance(0, NULL);
   SearchResult *sr = ObjectWrap::Unwrap<SearchResult>(instance);
+  sr->session_ = session;
   sr->search_ = search;
   // call member "onsetup" (if function) to allow custom setup
   Handle<Value> setupFun = instance->Get(String::New("onsetup"));
@@ -28,7 +30,7 @@ Local<Object> SearchResult::New(sp_search *search) {
 }
 
 Handle<Value> SearchResult::New(const Arguments& args) {
-  (new SearchResult(NULL))->Wrap(args.This());
+  (new SearchResult(NULL, NULL))->Wrap(args.This());
   return args.This();
 }
 
@@ -39,7 +41,8 @@ Handle<Value> SearchResult::TracksGetter(Local<String> property,
   int count = sp_search_num_tracks(s->search_);
   Local<Array> array = Array::New(count);
   for (int i = 0; i < count; i++) {
-    array->Set(Integer::New(i), Track::New(sp_search_track(s->search_, i)));
+    sp_track* track = sp_search_track(s->search_, i);
+    array->Set(Integer::New(i), Track::New(s->session_, track));
   }
   return scope.Close(array);
 }

@@ -25,7 +25,7 @@ static void TracksAdded(sp_playlist *playlist, sp_track *const *tracks,
   Local<Array> tracks_array = Array::New(count);
 
   for (int i = 0; i < count; i++) {
-    tracks_array->Set(i, Track::New(tracks[i]));
+    tracks_array->Set(i, Track::New(pl->session_, tracks[i]));
   }
 
   Handle<Value> argv[] = { Integer::New(position), tracks_array };
@@ -104,8 +104,9 @@ static sp_playlist_callbacks callbacks = {
 // -----------------------------------------------------------------------------
 // Playlist implementation
 
-Playlist::Playlist(sp_playlist* playlist)
+Playlist::Playlist(sp_session* session, sp_playlist* playlist)
     : EventEmitter()
+    , session_(session)
     , playlist_(playlist) {
   if (playlist_) {
     sp_playlist_add_ref(playlist_);
@@ -129,7 +130,7 @@ Playlist::~Playlist() {
 /**
  * Creates a new JavaScript playlist object wrapper, or a cached if one exists.
  */
-Handle<Value> Playlist::New(sp_playlist *playlist) {
+Handle<Value> Playlist::New(sp_session* session, sp_playlist *playlist) {
   // Try to find playlist in cache
   PlaylistMap::iterator it = playlist_cache_.find(playlist);
 
@@ -140,7 +141,7 @@ Handle<Value> Playlist::New(sp_playlist *playlist) {
   HandleScope scope;
   Persistent<Object> instance = Persistent<Object>::New(
       constructor_template->GetFunction()->NewInstance(0, NULL));
-  Playlist* pl = new Playlist(playlist);
+  Playlist* pl = new Playlist(session, playlist);
   pl->Wrap(instance);
   playlist_cache_[playlist] = instance;
   return scope.Close(instance);
@@ -175,7 +176,7 @@ Handle<Value> Playlist::TrackGetter(uint32_t index,
   if (track == NULL)
     return Undefined();
 
-  return scope.Close(Track::New(track));
+  return scope.Close(Track::New(p->session_, track));
 }
 
 Handle<Value> Playlist::TrackSetter(uint32_t index,
@@ -220,7 +221,7 @@ Handle<Array> Playlist::TrackEnumerator(const AccessorInfo& info) {
 
   for (int i = 0; i < num_tracks; i++) {
     sp_track* track = sp_playlist_track(p->playlist_, i);
-    tracks->Set(i, Track::New(track));
+    tracks->Set(i, Track::New(p->session_, track));
   }
 
   return scope.Close(tracks);

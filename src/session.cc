@@ -130,7 +130,7 @@ static void MetadataUpdated(sp_session *session) {
   Session* s = reinterpret_cast<Session*>(sp_session_userdata(session));
   assert(s->main_thread_id_ == pthread_self() /* or we will crash */);
   s->Emit(String::New("metadataUpdated"), 0, NULL);
-  s->metadata_update_queue_.process(s->handle_);
+  s->metadata_update_queue_.process(s->session_, s->handle_);
 }
 
 static void ConnectionError(sp_session* session, sp_error error) {
@@ -154,7 +154,7 @@ static void SearchComplete(sp_search *search, void *userdata) {
   } else {
     Handle<Value> argv[] = {
       Undefined(),
-      SearchResult::New(search)
+      SearchResult::New(s->session_, search)
     };
     (*sdata->callback)->Call(s->handle_, 2, argv);
   }
@@ -296,7 +296,7 @@ Handle<Value> Session::New(const Arguments& args) {
   ev_unref(EV_DEFAULT_UC); // don't let a lingering async ev keep the main loop
 
   sp_session* session;
-  sp_error error = sp_session_init(&config, &session);
+  sp_error error = sp_session_create(&config, &session);
 
   if (error != SP_ERROR_OK)
     return JS_THROW(Error, sp_error_message(error));
@@ -330,9 +330,7 @@ Handle<Value> Session::Login(const Arguments& args) {
   // save login callback
   if (s->login_callback_) cb_destroy(s->login_callback_);
   s->login_callback_ = cb_persist(args[2]);
-
   sp_session_login(s->session_, *username, *password);
-
   return Undefined();
 }
 
@@ -452,7 +450,7 @@ Handle<Value> Session::GetTrackByLink(const Arguments& args) {
   }
 
   // create Track object
-  Handle<Value> track = Track::New(t);
+  Handle<Value> track = Track::New(s->session_, t);
 
   // "loaded" callback
   if (args.Length() > 1) {
@@ -488,7 +486,7 @@ Handle<Value> Session::PlaylistContainerGetter(Local<String> property,
 
   if (!s->playlist_container_) {
     sp_playlistcontainer *pc = sp_session_playlistcontainer(s->session_);
-    Handle<Value> playlist_container = PlaylistContainer::New(pc);
+    Handle<Value> playlist_container = PlaylistContainer::New(s->session_, pc);
     s->playlist_container_ = new Persistent<Object>();
     *s->playlist_container_ = Persistent<Object>::New(
       Handle<Object>::Cast((*playlist_container)->ToObject()));

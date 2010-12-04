@@ -3,26 +3,19 @@
 #ifndef SPOTIFY_INDEX_H_
 #define SPOTIFY_INDEX_H_
 
-// We almost always need access to these
-#include <node.h>           // includes v8.h, ev.h, eio.h, sys/types.h, etc
-#include <node_events.h>    // EventEmitter
-#include <libspotify/api.h> // Spotify API
+#include <node.h>  // includes v8.h, ev.h, eio.h, sys/types.h, etc
+#include <node_events.h>  // EventEmitter
+#include <libspotify/api.h>  // Spotify API
 
-// Since we are not building a C++ API, we dont' care about namespaces in .h's
 using namespace v8;
 using namespace node;
 
-// -----------------------------------------------------------------------------
-// Constants
 
 enum MetadataUpdateType {
   kMetadataUpdateTypeTrack = 0,
   kMetadataUpdateTypeAlbum = 1,
   kMetadataUpdateTypeArtist = 2,
 };
-
-// -----------------------------------------------------------------------------
-// Aiding construction of types
 
 // Property getter interface boilerplate
 #define GETTER_H(name)\

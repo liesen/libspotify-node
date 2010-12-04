@@ -5,13 +5,13 @@
 
 class Playlist : public node::EventEmitter {
  public:
-  explicit Playlist(sp_playlist* playlist);
+  explicit Playlist(sp_session* session, sp_playlist* playlist);
 
   ~Playlist();
 
   static void Initialize(v8::Handle<v8::Object> target);
 
-  static v8::Handle<v8::Value> New(sp_playlist *playlist);
+  static v8::Handle<v8::Value> New(sp_session* session, sp_playlist *playlist);
 
   static v8::Handle<v8::Value> LengthGetter(v8::Local<v8::String> property,
                                             const v8::AccessorInfo& info);
@@ -54,6 +54,7 @@ class Playlist : public node::EventEmitter {
 
   int NumTracks() { return sp_playlist_num_tracks(playlist_); }
 
+  sp_session* session_;
   sp_playlist* playlist_;
 
   static Persistent<FunctionTemplate> constructor_template;

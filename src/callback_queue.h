@@ -25,7 +25,7 @@ class CallbackQueue {
   void push(const Local<Value> &callback, int type = 0, void *obj = NULL);
   void push(const Local<Value> &callback, sp_track *track);
   void remove(CallbackQueueEntry *entry);
-  int process(const Handle<Object> &context, bool once = false);
+  int process(sp_session* session, const Handle<Object> &context, bool once = false);
 };
 
 #endif // SPOTIFY_CALLBACK_QUEUE_H_

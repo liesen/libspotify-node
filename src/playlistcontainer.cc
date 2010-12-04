@@ -25,7 +25,7 @@ static void PlaylistAdded(sp_playlistcontainer *playlist_container,
        it != pc->create_callback_queue_.end();
        ++it) {
     if (it->first == playlist) {
-      Handle<Value> argv[] = { Playlist::New(playlist) };
+      Handle<Value> argv[] = { Playlist::New(pc->session_, playlist) };
       *(*it->second)->Call(pc->handle_, 1, argv);
       sp_playlist_release(playlist);
       cb_destroy(it->second);
@@ -33,7 +33,10 @@ static void PlaylistAdded(sp_playlistcontainer *playlist_container,
     }
   }
 
-  Handle<Value> argv[] = { Playlist::New(playlist), Integer::New(position) };
+  Handle<Value> argv[] = {
+    Playlist::New(pc->session_, playlist),
+    Integer::New(position)
+  };
   pc->Emit(String::New("playlistAdded"), 2, argv);
 }
 
@@ -44,7 +47,7 @@ static void PlaylistRemoved(sp_playlistcontainer *playlist_container,
   // this is called on the main thread
   PlaylistContainer* pc = static_cast<PlaylistContainer*>(userdata);
   Handle<Value> argv[] = {
-    Playlist::New(playlist),
+    Playlist::New(pc->session_, playlist),
     Integer::New(old_position)
   };
   pc->Emit(String::New("playlistRemoved"), 2, argv);
@@ -58,7 +61,7 @@ static void PlaylistMoved(sp_playlistcontainer *playlist_container,
   // this is called on the main thread
   PlaylistContainer* pc = static_cast<PlaylistContainer*>(userdata);
   Handle<Value> argv[] = {
-    Playlist::New(playlist),
+    Playlist::New(pc->session_, playlist),
     Integer::New(old_position),
     Integer::New(new_position)
   };
@@ -82,8 +85,10 @@ static sp_playlistcontainer_callbacks callbacks = {
   PlaylistContainerLoaded
 };
 
-PlaylistContainer::PlaylistContainer(sp_playlistcontainer* playlist_container)
+PlaylistContainer::PlaylistContainer(sp_session* session,
+                                     sp_playlistcontainer* playlist_container)
     : EventEmitter(),
+      session_(session),
       playlist_container_(playlist_container) {
   if (playlist_container_)
     sp_playlistcontainer_add_callbacks(playlist_container_, &callbacks, this);
@@ -105,11 +110,12 @@ PlaylistContainer::~PlaylistContainer() {
   create_callback_queue_.clear();
 }
 
-Handle<Value> PlaylistContainer::New(sp_playlistcontainer *playlist_container) {
+Handle<Value> PlaylistContainer::New(sp_session* session,
+                                     sp_playlistcontainer *playlist_container) {
   HandleScope scope;
   Local<Object> instance =
     constructor_template->GetFunction()->NewInstance(0, NULL);
-  PlaylistContainer* pc = new PlaylistContainer(playlist_container);
+  PlaylistContainer* pc = new PlaylistContainer(session, playlist_container);
   pc->Wrap(instance);
   return scope.Close(instance);
 }
@@ -129,7 +135,7 @@ Handle<Value> PlaylistContainer::PlaylistGetter(uint32_t index,
   sp_playlist* playlist = sp_playlistcontainer_playlist(
       pc->playlist_container_, index);
   if (!playlist) return Undefined();
-  return scope.Close(Playlist::New(playlist));
+  return scope.Close(Playlist::New(pc->session_, playlist));
 }
 
 Handle<Value> PlaylistContainer::PlaylistSetter(uint32_t index,
@@ -165,7 +171,7 @@ Handle<Array> PlaylistContainer::PlaylistEnumerator(const AccessorInfo& info) {
   for (int i = 0; i < num_playlists; i++) {
     sp_playlist* playlist = sp_playlistcontainer_playlist(
         pc->playlist_container_, i);
-    playlists->Set(i, Playlist::New(playlist));
+    playlists->Set(i, Playlist::New(pc->session_, playlist));
   }
 
   return scope.Close(playlists);
@@ -197,7 +203,7 @@ Handle<Value> PlaylistContainer::Create(const Arguments& args) {
     pc->create_callback_queue_.push_back(callback_entry);
   }
 
-  return scope.Close(Playlist::New(playlist));
+  return scope.Close(Playlist::New(pc->session_, playlist));
 }
 
 Handle<Value> PlaylistContainer::Remove(const Arguments& args) {

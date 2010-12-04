@@ -11,17 +11,18 @@ class Track : public EventEmitter {
 
   static void Initialize(Handle<Object> target);
 
-  explicit Track(sp_track *track);
+  explicit Track(sp_session* session, sp_track *track);
   ~Track();
 
   static Handle<Value> New(const Arguments& args);
-  static Handle<Value> New(sp_track *track);
+  static Handle<Value> New(sp_session* session, sp_track *track);
 
   GETTER_H(LoadedGetter);
   GETTER_H(AlbumGetter);
   GETTER_H(ArtistsGetter);
   GETTER_H(UriGetter);
 
+  sp_session* session_;
   sp_track* track_;
  protected:
   bool SetupBackingTrack();

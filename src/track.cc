@@ -7,7 +7,8 @@ Persistent<FunctionTemplate> Track::constructor_template;
 // -----------------------------------------------------------------------------
 // Track implementation
 
-Track::Track(sp_track *track) : track_(track), album_(NULL) {
+Track::Track(sp_session* session, sp_track *track)
+    : session_(session), track_(track), album_(NULL) {
   if (track_)
     sp_track_add_ref(track_);
 }
@@ -20,11 +21,11 @@ Track::~Track() {
     delete album_;
 }
 
-Handle<Value> Track::New(sp_track *track) {
+Handle<Value> Track::New(sp_session* session, sp_track *track) {
   HandleScope scope;
   Local<Function> constructor = constructor_template->GetFunction();
   Local<Object> instance = constructor->NewInstance(0, NULL);
-  Track *p = new Track(track);
+  Track *p = new Track(session, track);
   p->Wrap(instance);
 
   if (p->track_ && !p->SetupBackingTrack())
@@ -57,7 +58,7 @@ bool Track::SetupBackingTrack() {
 
   handle_->Set(String::New("name"), String::New(sp_track_name(track_)));
   handle_->Set(String::New("available"),
-               Boolean::New(sp_track_is_available(track_)));
+               Boolean::New(sp_track_is_available(session_, track_)));
   handle_->Set(String::New("duration"),
                Integer::New(sp_track_duration(track_)));
   handle_->Set(String::New("popularity"),

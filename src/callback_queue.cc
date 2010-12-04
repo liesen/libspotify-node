@@ -27,7 +27,8 @@ void CallbackQueue::remove(CallbackQueueEntry *entry) {
   delete entry;
 }
 
-int CallbackQueue::process(const Handle<Object> &context,
+int CallbackQueue::process(sp_session* session,
+                           const Handle<Object> &context,
                            bool once /*= false*/) {
   int hits = 0;
   CallbackQueueEntry *entry;
@@ -42,7 +43,7 @@ int CallbackQueue::process(const Handle<Object> &context,
         Handle<Value> err = Undefined();
         if (status == SP_ERROR_OK) {
           // loaded
-          Handle<Value> argv[] = { Undefined(), Track::New(t) };
+          Handle<Value> argv[] = { Undefined(), Track::New(session, t) };
           (*entry->callback)->Call(context, 2, argv);
         } else {
           // an error occured

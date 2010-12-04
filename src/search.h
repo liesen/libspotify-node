@@ -8,9 +8,9 @@ class SearchResult : public EventEmitter {
   static Persistent<FunctionTemplate> constructor_template;
 
   static void Initialize(Handle<Object> target);
-  explicit SearchResult(sp_search* search);
+  explicit SearchResult(sp_session* session, sp_search* search);
   static Handle<Value> New(const Arguments& args);
-  static Local<Object> New(sp_search *search);
+  static Local<Object> New(sp_session* session, sp_search *search);
 
   static Handle<Value> LoadedGetter(Local<String> property,
                                     const AccessorInfo& info);
@@ -29,6 +29,7 @@ class SearchResult : public EventEmitter {
   static Handle<Value> URIGetter(Local<String> property,
                                  const AccessorInfo& info);
  protected:
+  sp_session* session_; 
   sp_search* search_;
 };
 

@@ -8,12 +8,12 @@
 
 class PlaylistContainer : public node::EventEmitter {
  public:
-  explicit PlaylistContainer(sp_playlistcontainer* playlist_container);
+  explicit PlaylistContainer(sp_session* session, sp_playlistcontainer* playlist_container);
   ~PlaylistContainer();
 
   static void Initialize(v8::Handle<v8::Object> target);
 
-  static v8::Handle<v8::Value> New(sp_playlistcontainer* playlist_container);
+  static v8::Handle<v8::Value> New(sp_session* session, sp_playlistcontainer* playlist_container);
 
   static v8::Handle<v8::Value> LengthGetter(v8::Local<v8::String> property,
                                             const v8::AccessorInfo& info);
@@ -35,6 +35,7 @@ class PlaylistContainer : public node::EventEmitter {
   // remove(playlist)  Removes a playlist
   static v8::Handle<v8::Value> Remove(const v8::Arguments& args);
 
+  sp_session* session_;
   sp_playlistcontainer* playlist_container_;
 
   std::list<std::pair<sp_playlist*, Persistent<Function>*> > create_callback_queue_;
