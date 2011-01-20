@@ -5,7 +5,7 @@
 
 #include <pthread.h>
 #include <signal.h>
-#include <string>
+#include <string.h>
 #include <unistd.h>
 
 typedef struct log_message {

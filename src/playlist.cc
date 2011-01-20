@@ -3,6 +3,7 @@
 #include "session.h"
 #include "track.h"
 
+#include <malloc.h>
 #include <list>
 #include <map>
 #include <vector>
