@@ -30,15 +30,7 @@ def configure(conf):
   # todo: add --debug flag so we can set NDEBUG conditionally, omitting asserts.
   conf.check_tool('compiler_cxx')
   conf.check_tool('node_addon')
-
-  if PLATFORM_IS_DARWIN:
-    conf.env.append_value('LINKFLAGS', ['-framework', 'libspotify',
-                                        '-dynamiclib'])
-  if Options.options.debug:
-    conf.env['CXXFLAGS'] = list(conf.env['CXXFLAGS_DEBUG'])
-  else:
-    conf.env['CXXFLAGS'] = list(conf.env['CXXFLAGS_RELEASE'])
-    conf.env.append_value('CXXFLAGS', ['-DNDEBUG'])
+  conf.env.append_value("LIB_spotify", "spotify")
 
 def lint(ctx):
   Utils.exec_command('python cpplint.py --verbose=0 --filter='+
@@ -54,8 +46,7 @@ def build(ctx):
   task = ctx.new_task_gen('cxx', 'shlib', 'node_addon')
   task.target = 'binding'
   task.source = ctx.path.ant_glob('src/*.cc')
-  if not PLATFORM_IS_DARWIN:
-    task.lib = 'libspotify'
+  task.uselib = 'spotify'
 
 def test(ctx):
   status = Utils.exec_command('node test/all.js')
@@ -64,9 +55,8 @@ def test(ctx):
 
 def shutdown():
   # HACK to get binding.node out of build directory
-  if Options.commands['clean']:
+  if 'clean' in Options.commands:
     if path.exists('spotify/binding.node'): os.unlink('spotify/binding.node')
-  else:
-    if path.exists('build/default/binding.node'):
+  elif path.exists('build/default/binding.node'):
       copy('build/default/binding.node', 'spotify/binding.node')
 
