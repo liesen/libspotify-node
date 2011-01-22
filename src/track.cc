@@ -113,8 +113,7 @@ GETTER_C(Track::ArtistsGetter) {
   for (int i = 0; i < count; i++) {
     array->Set(Integer::New(i), Artist::New(sp_track_artist(p->track_, i)));
   }
-
-  scope.Close(array);
+  return scope.Close(array);
 }
 
 /**
@@ -125,7 +124,7 @@ Handle<Value> Track::UriGetter(Local<String> property,
                                const AccessorInfo& info) {
   HandleScope scope;
   Track *p = Unwrap<Track>(info.This());
-  fprintf(stderr, "UriGetter\n");
+  //fprintf(stderr, "UriGetter\n");
 
   if (!p->track_ || !sp_track_is_loaded(p->track_))
     return Undefined();
